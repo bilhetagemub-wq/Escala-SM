@@ -124,10 +124,12 @@
     align-items:baseline;
 }
 
+/* sábado e domingo lado a lado quando cabem; cartões crescem com a turma */
 .bloco-dias{
     display:grid;
-    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns:repeat(auto-fit, minmax(min(100%, 380px), 1fr));
     gap:12px;
+    align-items:start;
 }
 
 /* cartão do dia: a vela da equipe é o elemento de destaque */
@@ -495,4 +497,118 @@
     .feriado{ grid-template-columns:70px 1fr 36px; }
     .feriado-equipe{ grid-column:2 / 4; }
     .previa li{ grid-template-columns:1fr; gap:4px; }
+}
+
+/* =====================================================
+   TURMA DO DIA, ENCARREGADOS E GRUPOS POR EQUIPE
+===================================================== */
+
+.dia-vela em{
+    font-style:normal;
+    font-size:30px;
+    font-weight:700;
+    margin-top:auto;
+    margin-bottom:14px;
+    opacity:.9;
+}
+
+.dia-tags{ display:flex; gap:6px; }
+
+.dia-turma{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.turma-botoes{
+    display:inline-flex;
+    padding:3px;
+    gap:3px;
+    background:var(--papel);
+    border-radius:var(--raio-m);
+}
+
+.turma-bt{
+    padding:6px 12px;
+    border-radius:var(--raio-s);
+    background:none;
+    color:var(--tinta-2);
+    font:700 14px var(--fonte);
+}
+
+.turma-bt:hover{ color:var(--tinta); }
+
+.turma-bt.ativo{
+    background:var(--cor);
+    color:#fff;
+}
+
+.dia-total{
+    margin-left:auto;
+    font-size:13px;
+    font-weight:600;
+    color:var(--tinta-2);
+}
+
+.dia-lider{
+    padding:8px 10px;
+    border-radius:var(--raio-m);
+    background:#FFF4DB;
+    border:1px solid #F1D9A3;
+    display:grid;
+    gap:6px;
+}
+
+.lider-rotulo{
+    font-size:12px;
+    font-weight:700;
+    color:#8a5a00;
+}
+
+.membro--lider{
+    background:#fff;
+    border-color:#F1D9A3;
+    font-weight:600;
+}
+
+.membro--lider i{ color:#E39A12; font-size:11px; }
+
+.dia-grupo{
+    display:grid;
+    gap:5px;
+}
+
+.grupo-nome{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--tinta-2);
+}
+
+.grupo-nome i{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--cor-grupo);
+}
+
+.resumo-item--alerta{
+    background:#fff8e7;
+    border-color:#f1d9a3;
+    color:#8a5a00;
+}
+
+.resumo-item--alerta i{ color:#E39A12; }
+.resumo-item--alerta span{ color:#8a5a00; }
+
+.pilula--lider{ background:#FFF4DB; color:#8a5a00; }
+.pilula--lider i{ width:auto; height:auto; background:none; clip-path:none; color:#E39A12; font-size:11px; }
+
+@media (max-width:640px){
+    .dia{ grid-template-columns:48px 1fr; }
+    .dia-vela strong{ font-size:24px; }
+    .dia-vela em{ font-size:24px; }
 }

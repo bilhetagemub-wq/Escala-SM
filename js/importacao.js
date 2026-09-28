@@ -3,17 +3,17 @@
 // importacao.js — importar e exportar funcionários por planilha
 // ======================================================
 //
-// Colunas: Nome | Matrícula | Função | Escala | Equipe | Status
+// Colunas: Nome | Matrícula | Equipe | Cargo | Escala | Fim de semana | Encarregado | Status
 //
 // Regras:
 // - Reconhece quem já existe pela matrícula; sem matrícula, pelo nome.
-// - Equipe que não existe naquela escala é criada.
+// - Equipe (função) que não existe é criada.
 // - Em quem já existe, célula em branco mantém o valor atual.
 // - Nada é gravado antes da prévia ser confirmada.
 
 import { db } from "./firebase.js";
 import {
-    TIPOS, tipoDoTexto, tipoDoFuncionario, tipoDaEquipe, normalizar, proximaCor, esc
+    TIPOS, tipoDoTexto, tipoDoFuncionario, turmaDoTexto, turmaDe, normalizar, proximaCor, esc, ehEncarregado
 } from "./dados.js";
 
 import {
@@ -23,11 +23,17 @@ import {
 const ALIASES = {
     nome: ["nome", "nome completo", "funcionario", "colaborador"],
     matricula: ["matricula", "mat", "mat.", "registro", "re", "chapa"],
-    funcao: ["funcao", "cargo"],
+    equipe: ["equipe", "equipe (funcao)", "setor", "time"],
+    funcaoComoEquipe: ["funcao"],
+    cargo: ["cargo"],
     escala: ["escala", "turno", "tipo", "tipo de escala"],
-    equipe: ["equipe", "time", "grupo"],
+    turma: ["fim de semana", "turma", "fds", "grupo", "fim de semana (a/b)"],
+    encarregado: ["encarregado", "lider", "encarregado?"],
     status: ["status", "situacao"]
 };
+
+const SIM = ["sim", "s", "x", "1", "yes"];
+const NAO = ["nao", "n", "0", "no"];
 
 const LIMITE_LOTE = 450; // Firestore aceita até 500 operações por lote
 
@@ -65,6 +71,9 @@ async function lerArquivo(arquivo) {
     for (const [campo, nomes] of Object.entries(ALIASES)) {
         coluna[campo] = cab.findIndex((c) => nomes.includes(c));
     }
+    // "Função" é a equipe quando não há coluna Equipe; havendo as duas, Função é o cargo
+    if (coluna.equipe < 0) coluna.equipe = coluna.funcaoComoEquipe;
+    else if (coluna.cargo < 0) coluna.cargo = coluna.funcaoComoEquipe;
 
     const valor = (linha, campo) =>
         coluna[campo] >= 0 ? String(linha[coluna[campo]] ?? "").replace(/\s+/g, " ").trim() : "";
@@ -77,9 +86,11 @@ async function lerArquivo(arquivo) {
             linha: i + 1,
             nome: valor(l, "nome"),
             matricula: valor(l, "matricula"),
-            funcao: valor(l, "funcao"),
-            escala: valor(l, "escala"),
             equipe: valor(l, "equipe"),
+            cargo: valor(l, "cargo"),
+            escala: valor(l, "escala"),
+            turma: valor(l, "turma"),
+            encarregado: valor(l, "encarregado"),
             status: valor(l, "status")
         });
     }
@@ -100,7 +111,7 @@ function analisar(registros, equipes, funcionarios) {
         porNome.set(n, porNome.has(n) ? null : f); // null = nome repetido no sistema
     });
 
-    const equipePorChave = new Map(equipes.map((e) => [`${tipoDaEquipe(e)}|${normalizar(e.nome)}`, e]));
+    const equipePorNome = new Map(equipes.map((e) => [normalizar(e.nome), e]));
     const novasEquipes = new Map();
     const matriculasVistas = new Map();
     const tocados = new Set();
@@ -108,11 +119,15 @@ function analisar(registros, equipes, funcionarios) {
     const itens = registros.map((r) => {
         const erros = [];
         const tipoInformado = tipoDoTexto(r.escala);
+        const turmaInformada = turmaDoTexto(r.turma);
         const statusN = normalizar(r.status);
+        const encN = normalizar(r.encarregado);
 
         if (!r.nome) erros.push("Nome em branco");
         if (r.escala && !tipoInformado) erros.push(`Escala "${r.escala}" inválida: use Diurna ou Noturna`);
+        if (r.turma && !turmaInformada) erros.push(`Fim de semana "${r.turma}" inválido: use A ou B`);
         if (statusN && !["ativo", "inativo"].includes(statusN)) erros.push(`Status "${r.status}" inválido: use Ativo ou Inativo`);
+        if (encN && !SIM.includes(encN) && !NAO.includes(encN)) erros.push(`Encarregado "${r.encarregado}" inválido: use Sim ou Não`);
 
         const matN = normalizar(r.matricula);
         if (matN) {
@@ -135,35 +150,41 @@ function analisar(registros, equipes, funcionarios) {
         if (!tipo && !erros.length) erros.push("Escala em branco: informe Diurna ou Noturna");
 
         if (erros.length) return { ...r, erros, acao: "erro" };
-
         if (existente) tocados.add(existente.id);
 
-        // equipe de destino
-        let equipeId = null;
+        // equipe (função)
+        let equipeId = existente?.equipeId || null;
         let equipeNova = null;
-        let equipeNome = "";
+        let equipeNome = equipes.find((e) => e.id === equipeId)?.nome || "";
         if (r.equipe) {
-            const chave = `${tipo}|${normalizar(r.equipe)}`;
-            const achada = equipePorChave.get(chave);
+            const chave = normalizar(r.equipe);
+            const achada = equipePorNome.get(chave);
             if (achada) {
                 equipeId = achada.id;
                 equipeNome = achada.nome;
             } else {
-                if (!novasEquipes.has(chave)) novasEquipes.set(chave, { chave, nome: r.equipe, tipo });
+                if (!novasEquipes.has(chave)) novasEquipes.set(chave, { chave, nome: r.equipe });
+                equipeId = null;
                 equipeNova = chave;
                 equipeNome = r.equipe;
             }
-        } else if (existente && tipoDoFuncionario(existente) === tipo) {
-            equipeId = existente.equipeId || null; // em branco: continua onde está
-            equipeNome = equipes.find((e) => e.id === equipeId)?.nome || "";
         }
+
+        const cargo = r.cargo || existente?.funcao || "";
+        let lider;
+        if (SIM.includes(encN)) lider = true;
+        else if (NAO.includes(encN)) lider = false;
+        else if (normalizar(r.cargo).includes("encarregad") || normalizar(r.equipe).includes("encarregad")) lider = true;
+        else lider = existente ? ehEncarregado(existente, equipes) : false;
 
         const dados = {
             nome: r.nome,
             matricula: r.matricula || existente?.matricula || "",
-            funcao: r.funcao || existente?.funcao || "",
+            funcao: cargo,
             turno: TIPOS[tipo].turno,
-            status: statusN === "inativo" ? "Inativo" : statusN === "ativo" ? "Ativo" : (existente?.status || "Ativo")
+            turma: turmaInformada || (existente ? turmaDe(existente) : null),
+            status: statusN === "inativo" ? "Inativo" : statusN === "ativo" ? "Ativo" : (existente?.status || "Ativo"),
+            lider
         };
 
         let acao = "novo";
@@ -171,10 +192,12 @@ function analisar(registros, equipes, funcionarios) {
         if (existente) {
             if (existente.nome !== dados.nome) mudancas.push("nome");
             if ((existente.matricula || "") !== dados.matricula) mudancas.push("matrícula");
-            if ((existente.funcao || "") !== dados.funcao) mudancas.push("função");
+            if ((existente.funcao || "") !== dados.funcao) mudancas.push("cargo");
             if (tipoDoFuncionario(existente) !== tipo) mudancas.push("escala");
+            if (turmaDe(existente) !== dados.turma) mudancas.push(dados.turma ? `vai para o fim de semana ${dados.turma}` : "fim de semana");
             if ((existente.status || "Ativo") !== dados.status) mudancas.push("status");
             if (equipeNova || (existente.equipeId || null) !== equipeId) mudancas.push("equipe");
+            if (ehEncarregado(existente, equipes) !== lider) mudancas.push(lider ? "vira encarregado" : "deixa de ser encarregado");
             acao = mudancas.length ? "atualiza" : "igual";
         }
 
@@ -197,44 +220,24 @@ function analisar(registros, equipes, funcionarios) {
 async function aplicar(analise, equipes, funcionarios, inativarAusentes) {
     const ops = [];
 
-    // equipes novas: id gerado antes, entram no fim do rodízio da escala
+    // equipes novas: id gerado antes, entram no fim da lista
     const idDaNova = new Map();
     const todas = [...equipes];
     let ordem = equipes.length ? Math.max(...equipes.map((e) => e.ordem ?? 0)) + 1 : 0;
     analise.novasEquipes.forEach((n) => {
         const ref = doc(collection(db, "equipes"));
-        const cor = proximaCor(todas);
-        const dados = { nome: n.nome, cor, ordem: ordem++, escala: n.tipo };
+        const dados = { nome: n.nome, cor: proximaCor(todas), ordem: ordem++ };
         todas.push({ id: ref.id, ...dados });
         idDaNova.set(n.chave, ref.id);
         ops.push({ ref, dados, tipo: "set" });
     });
 
-    // posição no fim da coluna para quem entra numa equipe
-    const tamanho = new Map();
-    funcionarios.forEach((f) => {
-        const k = f.equipeId || "";
-        tamanho.set(k, (tamanho.get(k) || 0) + 1);
-    });
-    const proximaPosicao = (id) => {
-        const k = id || "";
-        const n = tamanho.get(k) || 0;
-        tamanho.set(k, n + 1);
-        return n;
-    };
-
     analise.itens.forEach((i) => {
         if (i.acao !== "novo" && i.acao !== "atualiza") return;
         const equipeId = i.equipeNova ? idDaNova.get(i.equipeNova) : i.equipeId;
         const dados = { ...i.dados, equipeId };
-
-        if (i.acao === "novo") {
-            dados.ordem = proximaPosicao(equipeId);
-            ops.push({ ref: doc(collection(db, "funcionarios")), dados, tipo: "set" });
-        } else {
-            if ((i.existente.equipeId || null) !== equipeId) dados.ordem = proximaPosicao(equipeId);
-            ops.push({ ref: doc(db, "funcionarios", i.existente.id), dados, tipo: "update" });
-        }
+        if (i.acao === "novo") ops.push({ ref: doc(collection(db, "funcionarios")), dados, tipo: "set" });
+        else ops.push({ ref: doc(db, "funcionarios", i.existente.id), dados, tipo: "update" });
     });
 
     let inativados = 0;
@@ -270,25 +273,27 @@ export function exportarPlanilha(equipes, funcionarios) {
 
     const ordenados = [...funcionarios].sort((a, b) =>
         tipoDoFuncionario(a).localeCompare(tipoDoFuncionario(b)) ||
+        (turmaDe(a) || "Z").localeCompare(turmaDe(b) || "Z") ||
         (posEquipe.get(a.equipeId) ?? 999) - (posEquipe.get(b.equipeId) ?? 999) ||
-        (a.ordem ?? 0) - (b.ordem ?? 0) ||
         (a.nome || "").localeCompare(b.nome || "")
     );
 
     const linhas = [
-        ["Nome", "Matrícula", "Função", "Escala", "Equipe", "Status"],
+        ["Nome", "Matrícula", "Equipe", "Cargo", "Escala", "Fim de semana", "Encarregado", "Status"],
         ...ordenados.map((f) => [
             f.nome || "",
             f.matricula || "",
+            nomeEquipe(f.equipeId),
             f.funcao || "",
             TIPOS[tipoDoFuncionario(f)].curto,
-            nomeEquipe(f.equipeId),
+            turmaDe(f) || "",
+            ehEncarregado(f, equipes) ? "Sim" : "Não",
             f.status || "Ativo"
         ])
     ];
 
     const aba = window.XLSX.utils.aoa_to_sheet(linhas);
-    aba["!cols"] = [{ wch: 34 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 20 }, { wch: 10 }];
+    aba["!cols"] = [{ wch: 34 }, { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 11 }, { wch: 14 }, { wch: 13 }, { wch: 10 }];
     // matrícula como texto, para não perder zeros à esquerda
     for (let r = 1; r < linhas.length; r++) {
         const cel = aba[window.XLSX.utils.encode_cell({ r, c: 1 })];
@@ -345,7 +350,7 @@ export function iniciarImportacao({ obterDados, aviso, abrirModal, fecharModal }
             `<span class="contador">${contagem.igual} sem mudança</span>`,
             contagem.erro ? `<span class="contador contador--erro">${contagem.erro} com erro, não serão importados</span>` : "",
             novasEquipes.length
-                ? `<span class="contador contador--equipe">Equipes novas: ${novasEquipes.map((n) => `${esc(n.nome)} (${TIPOS[n.tipo].curto.toLowerCase()})`).join(", ")}</span>`
+                ? `<span class="contador contador--equipe">Equipes novas: ${novasEquipes.map((n) => esc(n.nome)).join(", ")}</span>`
                 : ""
         ].join("");
 
@@ -365,6 +370,7 @@ export function iniciarImportacao({ obterDados, aviso, abrirModal, fecharModal }
                         <td>${esc(i.nome) || "—"}</td>
                         <td>${esc(i.dados?.matricula ?? i.matricula)}</td>
                         <td>${i.tipo ? TIPOS[i.tipo].curto : esc(i.escala)}</td>
+                        <td>${i.dados ? (i.dados.turma || "—") : esc(i.turma)}${i.dados?.lider ? ` <small title="Encarregado">★</small>` : ""}</td>
                         <td>${esc(i.equipeNome || (i.acao === "erro" ? i.equipe : "Sem equipe"))}${i.equipeNova ? " <small>(nova)</small>" : ""}</td>
                         <td>${resultado}</td>
                     </tr>`;

@@ -63,7 +63,7 @@
 
 .plantao-equipe{
     font-family:var(--fonte-titulo);
-    font-size:34px;
+    font-size:30px;
     font-weight:700;
     margin:2px 0 12px;
 }
@@ -73,6 +73,38 @@
     font-weight:600;
     margin:-8px 0 10px;
 }
+
+.plantao-lider{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:#FFF4DB;
+    border:1px solid #F1D9A3;
+    border-radius:var(--raio-m);
+    padding:5px 12px 5px 8px;
+    margin-bottom:10px;
+    font-size:14px;
+}
+
+.plantao-lider i{ color:#E39A12; }
+.plantao-lider span{ color:#8a5a00; font-weight:600; font-size:12px; }
+.plantao-lider strong{ font-weight:700; }
+.plantao-lider small{ color:#b4232a; font-weight:700; font-size:12px; }
+.plantao-lider.ausente strong{ text-decoration:line-through; color:var(--tinta-3); }
+
+.plantao-grupo{ margin-top:8px; }
+
+.plantao-grupo-nome{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    font-weight:700;
+    color:var(--tinta-2);
+    margin-bottom:4px;
+}
+
+.plantao-grupo-nome i{ width:8px; height:8px; border-radius:50%; background:var(--cor-grupo); }
 
 .plantao-membros{
     list-style:none;

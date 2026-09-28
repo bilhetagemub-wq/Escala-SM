@@ -9,7 +9,7 @@ import { logout } from "./auth.js";
 
 const LINKS = [
     { id: "dashboard", href: "/dashboard.html", icone: "fa-house", texto: "Início" },
-    { id: "funcionarios", href: "/pages/funcionarios.html", icone: "fa-people-group", texto: "Equipes" },
+    { id: "funcionarios", href: "/pages/funcionarios.html", icone: "fa-people-group", texto: "Funcionários" },
     { id: "escalas", href: "/pages/escalas.html", icone: "fa-calendar-week", texto: "Escala" }
 ];
 

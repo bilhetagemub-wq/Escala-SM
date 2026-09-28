@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Equipes | Escala São Miguel</title>
+    <title>Funcionários | Escala São Miguel</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,14 +19,14 @@
 
 <aside id="sidebar" class="app-sidebar"></aside>
 
-<main class="app-main app-main--quadro">
+<main class="app-main">
 
     <header class="page-head">
         <div>
-            <h1>Equipes de manutenção</h1>
+            <h1>Funcionários e turmas</h1>
             <p class="page-sub">
-                Arraste os funcionários entre as equipes. Arraste a coluna pela alça
-                para mudar a ordem do rodízio. Diurna e noturna têm equipes e rodízios separados.
+                Arraste cada pessoa para o fim de semana em que ela trabalha.
+                A equipe é a função (Elétrica, Mecânica...) e só organiza a lista.
             </p>
         </div>
 
@@ -36,9 +36,6 @@
             </button>
             <button id="btnExportar" class="bt bt-contorno" title="Baixa os funcionários no formato do modelo, para editar e importar de novo">
                 <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Baixar planilha atual
-            </button>
-            <button id="btnNovaEquipe" class="bt bt-contorno">
-                <i class="fa-solid fa-flag" aria-hidden="true"></i> Nova equipe
             </button>
             <button id="btnNovo" class="bt bt-principal">
                 <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Novo funcionário
@@ -55,21 +52,31 @@
         </button>
     </div>
 
+    <!-- equipes (funções): servem de filtro e de rótulo -->
+    <div class="funcoes">
+        <span class="funcoes-rotulo">Equipes</span>
+        <div id="listaFuncoes" class="funcoes-lista"></div>
+    </div>
+
     <div class="quadro-filtros">
         <label class="busca">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-            <input type="search" id="busca" placeholder="Buscar por nome, matrícula ou função" aria-label="Buscar funcionário">
+            <input type="search" id="busca" placeholder="Buscar por nome, matrícula ou cargo" aria-label="Buscar funcionário">
         </label>
-
 
         <label class="alternar">
             <input type="checkbox" id="mostrarInativos">
             <span>Mostrar inativos</span>
         </label>
+
+        <label class="alternar">
+            <input type="checkbox" id="modoCompacto">
+            <span>Cartões compactos</span>
+        </label>
     </div>
 
-    <div id="quadro" class="quadro" aria-live="polite">
-        <p class="carregando">Carregando equipes…</p>
+    <div id="quadro" class="quadro-turmas" aria-live="polite">
+        <p class="carregando">Carregando funcionários…</p>
     </div>
 
 </main>
@@ -96,11 +103,16 @@
                     <input type="text" id="funcMatricula" autocomplete="off">
                 </label>
                 <label class="campo">
-                    <span>Função</span>
-                    <input type="text" id="funcFuncao" list="listaFuncoes" autocomplete="off" placeholder="Ex.: Eletricista">
-                    <datalist id="listaFuncoes"></datalist>
+                    <span>Equipe (função)</span>
+                    <select id="funcEquipe"></select>
                 </label>
             </div>
+
+            <label class="campo">
+                <span>Cargo <small class="opcional">opcional</small></span>
+                <input type="text" id="funcFuncao" list="listaCargos" autocomplete="off" placeholder="Ex.: Eletricista II">
+                <datalist id="listaCargos"></datalist>
+            </label>
 
             <div class="modal-linha">
                 <label class="campo">
@@ -111,17 +123,29 @@
                     </select>
                 </label>
                 <label class="campo">
-                    <span>Status</span>
-                    <select id="funcStatus">
-                        <option value="Ativo">Ativo</option>
-                        <option value="Inativo">Inativo</option>
+                    <span>Trabalha no</span>
+                    <select id="funcTurma">
+                        <option value="A">Fim de semana A</option>
+                        <option value="B">Fim de semana B</option>
+                        <option value="">Ainda não definido</option>
                     </select>
                 </label>
             </div>
 
             <label class="campo">
-                <span>Equipe</span>
-                <select id="funcEquipe"></select>
+                <span>Status</span>
+                <select id="funcStatus">
+                    <option value="Ativo">Ativo</option>
+                    <option value="Inativo">Inativo</option>
+                </select>
+            </label>
+
+            <label class="marca-lider">
+                <input type="checkbox" id="funcLider">
+                <span>
+                    <strong><i class="fa-solid fa-star" aria-hidden="true"></i> Encarregado</strong>
+                    <small id="textoLider">Aparece em destaque na escala como líder do dia.</small>
+                </span>
             </label>
         </div>
 
@@ -137,7 +161,7 @@
     </form>
 </div>
 
-<!-- MODAL EQUIPE -->
+<!-- MODAL EQUIPE (FUNÇÃO) -->
 <div class="modal-fundo hidden" id="modalEquipe" role="dialog" aria-modal="true" aria-labelledby="tituloEquipe">
     <form class="modal-caixa" id="formEquipe" novalidate>
         <div class="modal-topo">
@@ -149,20 +173,12 @@
             <input type="hidden" id="equipeId">
 
             <label class="campo">
-                <span>Nome da equipe</span>
-                <input type="text" id="equipeNome" required autocomplete="off" placeholder="Ex.: Equipe A">
-            </label>
-
-            <label class="campo">
-                <span>Escala</span>
-                <select id="equipeEscala">
-                    <option value="diurna">Diurna</option>
-                    <option value="noturna">Noturna</option>
-                </select>
+                <span>Nome da equipe (função)</span>
+                <input type="text" id="equipeNome" required autocomplete="off" placeholder="Ex.: Elétrica">
             </label>
 
             <fieldset class="campo cores">
-                <span>Cor na escala</span>
+                <span>Cor</span>
                 <div id="equipeCores" class="paleta"></div>
             </fieldset>
         </div>
@@ -193,7 +209,7 @@
                     <input type="file" id="arquivoPlanilha" accept=".xlsx,.xls,.csv">
                     <i class="fa-solid fa-file-excel" aria-hidden="true"></i>
                     <strong>Arraste a planilha aqui ou clique para escolher</strong>
-                    <span>Arquivos .xlsx, .xls ou .csv com as colunas Nome, Matrícula, Função, Escala, Equipe e Status.</span>
+                    <span>Arquivos .xlsx, .xls ou .csv com as colunas Nome, Matrícula, Equipe, Cargo, Escala, Fim de semana, Encarregado e Status.</span>
                 </label>
 
                 <div class="modelo-aviso">
@@ -216,7 +232,7 @@
                 <div class="previa-tabela">
                     <table>
                         <thead>
-                            <tr><th>Linha</th><th>Nome</th><th>Matrícula</th><th>Escala</th><th>Equipe</th><th>Resultado</th></tr>
+                            <tr><th>Linha</th><th>Nome</th><th>Matrícula</th><th>Escala</th><th>Fim de semana</th><th>Equipe</th><th>Resultado</th></tr>
                         </thead>
                         <tbody id="linhasImportacao"></tbody>
                     </table>

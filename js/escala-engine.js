@@ -120,6 +120,13 @@ export function indiceFimDeSemana(iso, config, equipes) {
     return mod(inicial + semanas, n);
 }
 
+// Quantos fins de semana se passaram desde o fim de semana de referência
+export function semanasDesdeReferencia(iso, config) {
+    const cfg = { ...CONFIG_PADRAO, ...config };
+    const ref = sabadoDoFimDeSemana(cfg.dataReferencia || DATA_REFERENCIA_PADRAO);
+    return Math.round((paraTempo(sabadoDoFimDeSemana(iso)) - paraTempo(ref)) / SEMANA_MS);
+}
+
 export function equipeDoFimDeSemana(iso, config, equipes) {
     const i = indiceFimDeSemana(iso, config, equipes);
     return i < 0 ? null : equipes[i].id;
@@ -218,11 +225,13 @@ export function gerarEscalaDoMes(mesISO, { equipes, feriados = [], config = {}, 
     return dias;
 }
 
-// Integrantes da equipe do dia (ativos), com a ausência marcada, se houver
-export function integrantesDoDia(dia, funcionarios, ajustes = {}) {
+// Integrantes da equipe do dia (ativos), com a ausência marcada, se houver.
+// "excluir" tira da lista quem já aparece como encarregado do dia
+// (ou todos os encarregados, quando eles têm rodízio próprio).
+export function integrantesDoDia(dia, funcionarios, ajustes = {}, excluir = new Set()) {
     const ausencias = (ajustes.ausencias || {})[dia.data] || {};
     return funcionarios
-        .filter((f) => f.equipeId === dia.equipeId && f.status !== "Inativo")
+        .filter((f) => f.equipeId === dia.equipeId && f.status !== "Inativo" && !excluir.has(f.id))
         .map((f) => ({ ...f, ausencia: ausencias[f.id] || null }));
 }
 

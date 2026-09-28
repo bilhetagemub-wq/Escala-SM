@@ -25,9 +25,8 @@
         <div>
             <h1>Escala de fim de semana</h1>
             <p class="page-sub">
-                Plantão das equipes de manutenção aos sábados, domingos e feriados.
+                Fim de semana A para a turma A, fim de semana B para a turma B.
                 A escala do mês é gerada pelo rodízio; ajuste o que precisar e salve.
-                Diurna e noturna têm rodízios separados.
             </p>
         </div>
         <div class="page-actions">
@@ -73,7 +72,7 @@
 
         <p class="dica">
             <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
-            Troque a equipe de um dia pelo seletor. Clique num nome para marcar férias ou afastamento.
+            Troque a turma de um dia pelos botões A e B. Clique num nome para marcar férias ou afastamento.
         </p>
 
         <div id="gradeDias" class="grade"></div>
@@ -95,7 +94,7 @@
                         <input type="text" id="feriadoDescricao" placeholder="Ex.: Aniversário da cidade" required>
                     </label>
                     <label class="campo">
-                        <span>Equipe</span>
+                        <span>Turma</span>
                         <select id="feriadoEquipe"></select>
                     </label>
                     <button type="submit" class="bt bt-principal">
@@ -132,8 +131,8 @@
                 </div>
                 <p class="texto-apoio">
                     Os feriados valem para as duas escalas, mas cada escala tem a sua fila:
-                    cada feriado fica com a próxima equipe, independente do fim de semana.
-                    Se você fixar uma equipe num feriado, a fila continua a partir dela.
+                    os feriados alternam entre a turma A e a B, independente do fim de semana.
+                    Se você fixar a turma de um feriado, a fila continua a partir dela.
                 </p>
                 <div id="listaFeriados" class="lista-feriados"></div>
             </div>
@@ -145,25 +144,11 @@
 
         <div class="duas-colunas">
             <form id="formRotacao" class="painel form-rotacao" novalidate>
-                <h3>Como as equipes se revezam</h3>
-
-                <fieldset class="opcoes">
-                    <legend>Fim de semana</legend>
-                    <label class="opcao">
-                        <input type="radio" name="modo" value="fimdesemana">
-                        <span>
-                            <strong>Mesma equipe no sábado e no domingo</strong>
-                            <small>A cada fim de semana entra a próxima equipe.</small>
-                        </span>
-                    </label>
-                    <label class="opcao">
-                        <input type="radio" name="modo" value="alternado">
-                        <span>
-                            <strong>Uma equipe no sábado, a seguinte no domingo</strong>
-                            <small>Os dias mudam aos poucos: quem fez domingo vai para o sábado no próximo ciclo.</small>
-                        </span>
-                    </label>
-                </fieldset>
+                <h3>Como as turmas se revezam</h3>
+                <p class="texto-apoio">
+                    A turma A trabalha num fim de semana e a turma B no seguinte, sempre alternando.
+                    Quem está em cada turma você define em Funcionários.
+                </p>
 
                 <div class="modal-linha">
                     <label class="campo">
@@ -171,14 +156,56 @@
                         <input type="date" id="dataReferencia">
                     </label>
                     <label class="campo">
-                        <span>Equipe desse fim de semana</span>
-                        <select id="equipeInicial"></select>
+                        <span>Turma desse fim de semana</span>
+                        <select id="equipeInicial">
+                            <option value="A">Turma A</option>
+                            <option value="B">Turma B</option>
+                        </select>
                     </label>
                 </div>
 
+                <fieldset class="opcoes">
+                    <legend>Sábado e domingo</legend>
+                    <label class="opcao">
+                        <input type="radio" name="modo" value="fimdesemana">
+                        <span>
+                            <strong>A mesma turma no sábado e no domingo</strong>
+                            <small>Fim de semana A inteiro para a turma A, o seguinte inteiro para a turma B.</small>
+                        </span>
+                    </label>
+                    <label class="opcao">
+                        <input type="radio" name="modo" value="alternado">
+                        <span>
+                            <strong>Uma turma no sábado e a outra no domingo</strong>
+                            <small>As duas trabalham todo fim de semana e trocam de dia a cada semana.</small>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <fieldset class="opcoes">
+                    <legend>Encarregados</legend>
+                    <label class="opcao">
+                        <input type="radio" name="modoEncarregado" value="todos">
+                        <span>
+                            <strong>Trabalham nos dois fins de semana</strong>
+                            <small>O encarregado fica escalado no fim de semana A e no B. Padrão da escala diurna.</small>
+                        </span>
+                    </label>
+                    <label class="opcao">
+                        <input type="radio" name="modoEncarregado" value="turma">
+                        <span>
+                            <strong>Seguem a própria turma</strong>
+                            <small>O encarregado trabalha só no fim de semana da turma dele. Padrão da escala noturna.</small>
+                        </span>
+                    </label>
+                </fieldset>
+
                 <label class="campo">
                     <span>Primeiro feriado da lista fica com</span>
-                    <select id="feriadoEquipeInicial"></select>
+                    <select id="feriadoEquipeInicial">
+                        <option value="A">Turma A</option>
+                        <option value="B">Turma B</option>
+                    </select>
                 </label>
 
                 <fieldset class="opcoes">
@@ -186,24 +213,18 @@
                     <label class="opcao">
                         <input type="radio" name="feriadoFds" value="feriado">
                         <span>
-                            <strong>Fica com a equipe do rodízio de feriados</strong>
-                            <small>A equipe do fim de semana folga nesse dia.</small>
+                            <strong>Fica com a turma da vez nos feriados</strong>
+                            <small>A turma do fim de semana folga nesse dia.</small>
                         </span>
                     </label>
                     <label class="opcao">
                         <input type="radio" name="feriadoFds" value="fimdesemana">
                         <span>
-                            <strong>Fica com a equipe do fim de semana</strong>
+                            <strong>Fica com a turma do fim de semana</strong>
                             <small>O feriado não conta na fila de feriados.</small>
                         </span>
                     </label>
                 </fieldset>
-
-                <div class="ordem-rodizio">
-                    <span class="rotulo">Ordem do rodízio</span>
-                    <div id="ordemEquipes" class="ordem-lista"></div>
-                    <a href="/pages/funcionarios.html" class="link" id="linkOrdem">Mudar a ordem arrastando as colunas em Equipes</a>
-                </div>
 
                 <button type="submit" class="bt bt-principal">
                     <i class="fa-solid fa-check" aria-hidden="true"></i> Salvar rotação

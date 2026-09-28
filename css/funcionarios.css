@@ -1,13 +1,66 @@
 /* =====================================================
    Escala São Miguel
-   funcionarios.css — quadro de equipes (estilo Trello)
+   funcionarios.css — funcionários por turma (fim de semana A / B)
 ===================================================== */
 
-.app-main--quadro{
+/* ---------- equipes (funções) como filtro ---------- */
+
+.funcoes{
     display:flex;
-    flex-direction:column;
-    height:100vh;
-    padding-bottom:20px;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+}
+
+.funcoes-rotulo{ font-size:13px; font-weight:600; color:var(--tinta-2); }
+
+.funcoes-lista{ display:flex; flex-wrap:wrap; gap:6px; }
+
+.chip-funcao{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 12px;
+    border-radius:999px;
+    background:var(--superficie);
+    border:1px solid var(--linha);
+    color:var(--tinta);
+    font:600 14px var(--fonte);
+}
+
+.chip-funcao small{ color:var(--tinta-3); font-weight:600; }
+.chip-funcao:hover{ border-color:var(--tinta-3); }
+.chip-funcao.ativo{ background:var(--tinta); border-color:var(--tinta); color:#fff; }
+.chip-funcao.ativo small{ color:rgba(255,255,255,.7); }
+
+.chip-funcao-grupo{ display:inline-flex; align-items:center; }
+.chip-funcao-grupo .chip-funcao{ border-radius:999px 0 0 999px; padding-right:8px; }
+.chip-funcao-grupo.ativo .chip-funcao{ background:var(--tinta); border-color:var(--tinta); color:#fff; }
+.chip-funcao-grupo.ativo .chip-funcao small{ color:rgba(255,255,255,.7); }
+
+.chip-editar{
+    height:33px;
+    padding:0 10px 0 8px;
+    border:1px solid var(--linha);
+    border-left:none;
+    border-radius:0 999px 999px 0;
+    background:var(--superficie);
+    color:var(--tinta-3);
+    font-size:11px;
+}
+
+.chip-editar:hover{ color:var(--tinta); }
+
+.chip-nova{ border-style:dashed; color:var(--tinta-2); }
+.chip-nova:hover{ border-color:var(--sm-verde); color:var(--sm-verde-escuro); }
+
+.ponto{
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    background:var(--cor, var(--tinta-3));
+    flex:0 0 auto;
 }
 
 /* ---------- filtros ---------- */
@@ -34,25 +87,7 @@
 
 .busca:focus-within{ border-color:var(--sm-azul); }
 .busca i{ color:var(--tinta-3); }
-
-.busca input{
-    border:none;
-    background:none;
-    padding:10px 0;
-    font:inherit;
-    width:100%;
-}
-
-.chip{
-    padding:7px 14px;
-    border-radius:999px;
-    background:var(--superficie);
-    border:1px solid var(--linha);
-    color:var(--tinta-2);
-    font:600 14px var(--fonte);
-}
-
-.chip.ativo{ background:var(--tinta); border-color:var(--tinta); color:#fff; }
+.busca input{ border:none; background:none; padding:10px 0; font:inherit; width:100%; }
 
 .alternar{
     display:flex;
@@ -65,213 +100,216 @@
 
 .alternar input{ width:16px; height:16px; accent-color:var(--sm-verde); }
 
-/* ---------- quadro ---------- */
-
-.quadro{
-    flex:1;
-    display:flex;
-    align-items:flex-start;
-    gap:14px;
-    overflow-x:auto;
-    overflow-y:hidden;
-    padding-bottom:12px;
-    min-height:0;
-}
-
 .carregando{ color:var(--tinta-2); }
 
-.coluna{
-    --cor:var(--tinta-3);
-    flex:0 0 288px;
-    max-height:100%;
-    display:flex;
-    flex-direction:column;
+/* =====================================================
+   QUADRO POR TURMA
+   Nada de rolagem horizontal: as turmas ficam lado a lado
+   e os cartões se distribuem em grade dentro de cada uma.
+===================================================== */
+
+.quadro-turmas{ display:grid; gap:16px; }
+
+.turmas{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:16px;
+    align-items:start;
+}
+
+.turma{
+    --cor:var(--sm-verde);
     background:#E3E7EE;
     border-radius:var(--raio-l);
-    position:relative;
-    overflow:hidden;
+    border-top:5px solid var(--cor);
+    min-width:0;
 }
 
-/* faixa superior com a cor da equipe */
-.coluna::before{
-    content:"";
-    height:5px;
-    background:var(--cor);
-    flex:0 0 auto;
-}
-
-.coluna--livre{
-    background:transparent;
-    border:2px dashed #cbd2dd;
-}
-
-.coluna--livre::before{ display:none; }
-
-.coluna-topo{
+.turma-topo{
     display:flex;
     align-items:center;
-    gap:8px;
-    padding:10px 10px 4px 12px;
+    gap:12px;
+    padding:14px 16px 8px;
 }
 
-.coluna-alca{
-    cursor:grab;
-    color:var(--tinta-3);
-    padding:4px 2px;
-    background:none;
-    font-size:14px;
-}
-
-.coluna-alca:active{ cursor:grabbing; }
-
-.coluna-vela{
-    width:16px;
-    height:18px;
-    background:var(--cor);
-    clip-path:var(--vela);
+.turma-letra{
+    width:44px;
+    height:44px;
     flex:0 0 auto;
-}
-
-.coluna-topo h2{
-    font-size:18px;
-    font-weight:700;
-    flex:1;
-    min-width:0;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-
-.contagem{
-    font-size:13px;
-    font-weight:600;
-    color:var(--tinta-2);
-    background:rgba(255,255,255,.7);
-    border-radius:999px;
-    padding:1px 9px;
-}
-
-.coluna-editar{
-    background:none;
-    color:var(--tinta-3);
-    width:30px;
-    height:30px;
-    border-radius:var(--raio-s);
-}
-
-.coluna-editar:hover{ background:rgba(27,35,48,.08); color:var(--tinta); }
-
-.coluna-posicao{
-    font-size:13px;
-    color:var(--tinta-2);
-    padding:0 12px 8px 36px;
-}
-
-.coluna-cards{
-    flex:1;
-    overflow-y:auto;
-    padding:4px 10px 6px;
+    background:var(--cor);
+    color:#fff;
+    clip-path:var(--vela);
+    font:700 24px var(--fonte-titulo);
     display:flex;
-    flex-direction:column;
-    gap:8px;
-    min-height:56px;
+    align-items:center;
+    padding-left:9px;
 }
 
-.coluna--livre .coluna-posicao{ padding-left:12px; }
+.turma-titulo h2{ font-size:21px; font-weight:700; }
+.turma-titulo p{ font-size:14px; color:var(--tinta-2); }
 
-.coluna-vazia{
+.turma-lider{
+    margin:0 16px 10px;
+    padding:6px 10px;
+    border-radius:var(--raio-m);
+    background:#FFF4DB;
+    border:1px solid #F1D9A3;
+    font-size:14px;
+    color:#8a5a00;
+    display:flex;
+    gap:8px;
+    align-items:center;
+}
+
+.turma-lider i{ color:#E39A12; }
+.turma-lider.vazio{ background:none; border-style:dashed; border-color:#c6cdd8; color:var(--tinta-3); }
+.turma-lider.vazio i{ color:var(--tinta-3); }
+
+/* cartões em grade: quantos couberem por linha */
+.lista-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(210px, 1fr));
+    gap:8px;
+    padding:4px 12px 14px;
+    min-height:80px;
+    align-content:start;
+}
+
+.grupo-titulo{
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font:600 13px var(--fonte);
+    color:var(--tinta-2);
+    margin-top:6px;
+}
+
+.grupo-titulo:first-child{ margin-top:0; }
+.grupo-titulo small{ color:var(--tinta-3); font-weight:500; }
+
+.lista-vazia{
+    grid-column:1 / -1;
     font-size:14px;
     color:var(--tinta-3);
     text-align:center;
-    padding:14px 8px;
+    padding:18px 8px;
     border:1px dashed #c6cdd8;
     border-radius:var(--raio-m);
     pointer-events:none;
 }
 
-.adicionar-card{
-    margin:4px 10px 10px;
-    padding:9px 10px;
-    border-radius:var(--raio-m);
-    background:none;
-    color:var(--tinta-2);
-    font:600 14px var(--fonte);
-    text-align:left;
-    display:flex;
-    align-items:center;
-    gap:8px;
-}
-
-.adicionar-card:hover{ background:rgba(27,35,48,.07); color:var(--tinta); }
-
-/* coluna de "nova equipe" */
-.coluna-nova{
-    flex:0 0 240px;
-    border:2px dashed #cbd2dd;
+/* faixas (sem turma / encarregados) */
+.faixa{
     border-radius:var(--raio-l);
-    background:none;
-    color:var(--tinta-2);
-    font:600 15px var(--fonte);
-    padding:22px;
+    border:2px dashed #cbd2dd;
+}
+
+.faixa--lider{ border:1px solid #F1D9A3; background:#FFFBF1; }
+
+.faixa-topo{
+    display:flex;
+    align-items:baseline;
+    gap:4px 14px;
+    flex-wrap:wrap;
+    padding:12px 16px 6px;
+}
+
+.faixa-topo h2{
+    font-size:17px;
+    font-weight:700;
     display:flex;
     align-items:center;
-    justify-content:center;
     gap:8px;
 }
 
-.coluna-nova:hover{ border-color:var(--sm-verde); color:var(--sm-verde-escuro); }
+.faixa-topo p{ font-size:14px; color:var(--tinta-2); }
+.faixa--lider .faixa-topo h2 i{ color:#E39A12; }
 
-/* ---------- card do funcionário ---------- */
+.contagem{
+    font-size:13px;
+    font-weight:600;
+    color:var(--tinta-2);
+    background:rgba(27,35,48,.07);
+    border-radius:999px;
+    padding:1px 9px;
+}
+
+.lista-cards--faixa{ min-height:60px; }
+.lista-fixa .card-func{ cursor:pointer; }
+
+/* ---------- cartão do funcionário ---------- */
 
 .card-func{
+    --cor:var(--tinta-3);
     background:var(--superficie);
     border-radius:var(--raio-m);
     box-shadow:var(--sombra-card);
     padding:10px 12px;
     display:grid;
-    grid-template-columns:36px 1fr;
-    gap:4px 10px;
+    grid-template-columns:34px minmax(0, 1fr);
+    gap:2px 10px;
     cursor:grab;
     user-select:none;
     border:1px solid transparent;
+    min-width:0;
 }
 
 .card-func:hover{ border-color:#c9d0db; }
-
 .card-func.inativo{ opacity:.55; }
 
 .avatar{
-    width:36px;
-    height:36px;
+    position:relative;
+    width:34px;
+    height:34px;
     border-radius:50%;
     display:flex;
     align-items:center;
     justify-content:center;
     font-weight:700;
-    font-size:13px;
+    font-size:12px;
     color:#fff;
-    background:var(--cor, var(--tinta-3));
+    background:var(--cor);
     grid-row:span 2;
 }
 
 .card-nome{
     font-weight:600;
     line-height:1.25;
-    overflow-wrap:anywhere;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
 
 .card-funcao{
     font-size:13px;
     color:var(--tinta-2);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    min-width:0;
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
 }
 
+.card-funcao .cargo{
+    color:var(--tinta-3);
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.card-funcao .cargo::before{ content:"/"; margin:0 5px 0 1px; color:var(--linha); }
+
 .card-meta{
-    grid-column:2;
+    grid-column:1 / -1;
     display:flex;
     gap:6px;
     flex-wrap:wrap;
-    margin-top:4px;
+    margin-top:6px;
 }
+
+.card-meta:empty{ display:none; }
 
 .etiqueta{
     font-size:12px;
@@ -282,11 +320,32 @@
     color:var(--tinta-2);
 }
 
-.etiqueta--noite{ background:#e6e7f5; color:var(--sm-azul); }
-.etiqueta--manha{ background:#fff4db; color:#8a5a00; }
 .etiqueta--inativo{ background:#fdecec; color:#b4232a; }
+.etiqueta--lider{ background:#E39A12; color:#fff; }
+.etiqueta--lider i{ font-size:10px; }
 
-/* estados do arraste (SortableJS) */
+.card-func--lider{
+    border-color:#F1D9A3;
+    background:linear-gradient(90deg, #FFF4DB 0, #fff 75%);
+}
+
+.avatar-lider{
+    position:absolute;
+    right:-4px;
+    bottom:-4px;
+    width:17px;
+    height:17px;
+    border-radius:50%;
+    background:#E39A12;
+    color:#fff;
+    font-size:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid #fff;
+}
+
+/* estados do arraste */
 .card-fantasma{
     opacity:.35;
     background:color-mix(in srgb, var(--sm-verde) 15%, white);
@@ -295,12 +354,50 @@
 }
 
 .card-arrastando{
-    transform:rotate(2.5deg);
+    transform:rotate(2deg);
     box-shadow:var(--sombra-flutuante);
     cursor:grabbing;
 }
 
-.coluna-fantasma{ opacity:.4; }
+/* ---------- cartões compactos: uma linha por pessoa ---------- */
+
+.quadro-turmas.compacto .lista-cards{
+    grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));
+    gap:5px;
+}
+
+.quadro-turmas.compacto .card-func{
+    grid-template-columns:24px minmax(0, 1fr);
+    align-items:center;
+    padding:5px 9px;
+    gap:8px;
+}
+
+.quadro-turmas.compacto .avatar{ width:24px; height:24px; font-size:9px; grid-row:auto; }
+.quadro-turmas.compacto .avatar-lider{ width:13px; height:13px; font-size:7px; right:-5px; bottom:-5px; }
+.quadro-turmas.compacto .card-nome{ font-size:14px; }
+.quadro-turmas.compacto .card-funcao,
+.quadro-turmas.compacto .card-meta{ display:none; }
+
+/* ---------- modal ---------- */
+
+.opcional{ font-weight:400; color:var(--tinta-3); }
+
+.marca-lider{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 14px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    cursor:pointer;
+}
+
+.marca-lider:has(input:checked){ border-color:#E39A12; background:#FFF8E7; }
+.marca-lider input{ margin-top:4px; width:16px; height:16px; accent-color:#E39A12; }
+.marca-lider strong{ display:block; font-weight:600; }
+.marca-lider strong i{ color:#E39A12; }
+.marca-lider small{ color:var(--tinta-2); font-size:13px; }
 
 /* ---------- modal: paleta ---------- */
 
@@ -325,10 +422,15 @@
 .paleta input:checked + span{ box-shadow:0 0 0 3px var(--tinta); }
 .paleta input:focus-visible + span{ outline:3px solid var(--sm-azul); outline-offset:2px; }
 
-@media (max-width:860px){
-    .app-main--quadro{ height:auto; min-height:100vh; }
-    .quadro{ overflow-y:visible; }
-    .coluna{ flex-basis:80vw; max-height:none; }
+
+/* ---------- responsivo ---------- */
+
+@media (max-width:1000px){
+    .turmas{ grid-template-columns:1fr; }
+}
+
+@media (max-width:480px){
+    .lista-cards{ grid-template-columns:1fr; }
 }
 
 /* =====================================================
