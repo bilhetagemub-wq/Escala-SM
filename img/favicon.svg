@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- três velas da marca São Miguel: vermelha, verde e azul -->
+  <path d="M3 8 L20 9 L29 32 L20 56 L6 56 Q16 32 3 8 Z" fill="#EF3A42"/>
+  <path d="M20 8 L38 9 L46 30 L37 56 L23 56 Q33 32 20 8 Z" fill="#0A9447"/>
+  <path d="M38 8 L62 8 L50 56 L40 56 Q50 32 38 8 Z" fill="#3B3F96"/>
+</svg>
