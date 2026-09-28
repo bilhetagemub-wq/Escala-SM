@@ -14,10 +14,11 @@ import {
     ouvirEquipes, ouvirFuncionarios, ouvirFeriados,
     lerConfig, salvarConfig, lerAjustesDoMes, salvarEscalaDoMes,
     ROTULO_AUSENCIA, TIPOS, TURMAS, turmaPorId, turmaFixaDoFeriado,
-    modoEncarregado, pessoasDoDia, ativosDaEscala, turmaDe, ehEncarregado, esc
+    modoEncarregado, pessoasDoDia, ativosDaEscala, turmaDe, ehEncarregado, esc,
+    encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
 import {
-    gerarEscalaDoMes, distribuirFeriados, feriadosNacionais,
+    gerarEscalaDoMes, distribuirFeriados, feriadosNacionais, atribuirEncarregados, somarDias,
     sabadoDoFimDeSemana, hojeISO, mesDe, somarMeses, diaDaSemana,
     NOMES_DIA, NOMES_DIA_CURTO, NOMES_MES, dataCurta, dataCompleta, tituloMes
 } from "./escala-engine.js";
@@ -41,7 +42,7 @@ let funcionarios = [];
 let todosFeriados = [];
 let feriados = [];         // com a turma fixa da escala aberta
 let config = null;
-let ajustes = { trocas: {}, ausencias: {}, salvo: false };
+let ajustes = { trocas: {}, ausencias: {}, encarregados: {}, salvo: false };
 let sujo = false;
 const pronto = { equipes: false, funcionarios: false, feriados: false, config: false };
 
@@ -70,17 +71,11 @@ async function carregarConfig() {
     try {
         const c = await lerConfig(tipoAtual);
         if (pedido !== pedidoConfig) return;
-        config = c;
+        config = completarConfig(c);
 
-        // primeiro uso: o rodízio parte deste fim de semana com a turma A
-        if (!config.existe) {
-            config = {
-                ...config,
-                dataReferencia: sabadoDoFimDeSemana(hoje),
-                equipeInicialId: "A",
-                feriadoEquipeInicialId: "A",
-                existe: true
-            };
+        // primeiro uso: grava o ponto de partida (este fim de semana, turma A)
+        if (config.novo) {
+            config = { ...config, existe: true, novo: false };
             salvarConfig(tipoAtual, config)
                 .then(() => aviso(`${TIPOS[tipoAtual].rotulo}: a turma A começa neste fim de semana. Ajuste na aba Rotação.`))
                 .catch((erro) => console.error(erro));
@@ -167,7 +162,7 @@ async function carregarMes(mes, inicial = false) {
         ajustes = await lerAjustesDoMes(mes, tipoAtual);
     } catch (erro) {
         console.error(erro);
-        ajustes = { trocas: {}, ausencias: {}, salvo: false };
+        ajustes = { trocas: {}, ausencias: {}, encarregados: {}, salvo: false };
         aviso("Não foi possível ler os ajustes salvos deste mês.", "erro");
     }
     renderMes();
@@ -179,12 +174,24 @@ $("mesHoje").addEventListener("click", () => carregarMes(mesDe(hoje)));
 $("mes").addEventListener("change", (e) => e.target.value && carregarMes(e.target.value));
 
 const modo = () => modoEncarregado(config, tipoAtual);
+const encarregados = () => encarregadosDaEscala(funcionarios, tipoAtual, equipes);
+const nomePessoa = (id) => funcionarios.find((f) => f.id === id)?.nome || "";
 
-function diasDoMesAtual() {
-    return gerarEscalaDoMes(mesAtual, { equipes: TURMAS, feriados, config: config || {}, ajustes });
+function comEncarregados(dias, cfg, ajustesDoMes) {
+    return atribuirEncarregados(dias, {
+        encarregados: encarregados().map((f) => f.id),
+        config: cfg || {},
+        modo: modoEncarregado(cfg, tipoAtual),
+        ajustes: ajustesDoMes
+    });
 }
 
-const pessoas = (d) => pessoasDoDia(d, funcionarios, ajustes, tipoAtual, modo(), equipes);
+function diasDoMesAtual() {
+    const dias = gerarEscalaDoMes(mesAtual, { equipes: TURMAS, feriados, config: config || {}, ajustes });
+    return comEncarregados(dias, config, ajustes);
+}
+
+const pessoas = (d, agruparPor = "equipe") => pessoasDoDia(d, funcionarios, ajustes, tipoAtual, equipes, agruparPor);
 
 function marcarSujo() {
     sujo = true;
@@ -231,9 +238,34 @@ function htmlPessoa(p, d, classe = "") {
         </li>`;
 }
 
+function htmlLider(d, lider) {
+    const lista = encarregados();
+    if (!lista.length) return "";
+    const aus = lider?.ausencia;
+    const original = d.encarregadoOriginalId ? nomePessoa(d.encarregadoOriginalId) : "sem encarregado";
+
+    return `
+        <div class="dia-lider ${lider ? "" : "vazio-lider"} ${aus ? "ausente" : ""}">
+            <span class="lider-icone" aria-hidden="true"><i class="fa-solid fa-star"></i></span>
+            <label class="lider-campo">
+                <span class="lider-rotulo">Encarregado${d.encarregadoAlterado ? " (trocado)" : ""}</span>
+                <select data-lider="${d.data}" aria-label="Encarregado em ${dataCurta(d.data)}">
+                    <option value="" ${!d.encarregadoId ? "selected" : ""}>Sem encarregado</option>
+                    ${lista.map((f) => `<option value="${esc(f.id)}" ${f.id === d.encarregadoId ? "selected" : ""}>${esc(f.nome)}</option>`).join("")}
+                </select>
+            </label>
+            ${lider ? `
+                <button class="lider-ausencia" data-membro="${esc(lider.id)}" data-dia="${d.data}"
+                        title="${aus ? "Clique para mudar ou remover a ausência" : "Marcar férias ou afastamento"}">
+                    ${aus ? ROTULO_AUSENCIA[aus] : `<i class="fa-solid fa-user-clock" aria-hidden="true"></i><span class="sr">Ausência</span>`}
+                </button>` : ""}
+            ${d.encarregadoAlterado ? `<button class="voltar-auto" data-voltar-lider="${d.data}" title="Voltar para o encarregado do rodízio (${esc(original)})" aria-label="Voltar para ${esc(original)}"><i class="fa-solid fa-rotate-left"></i></button>` : ""}
+        </div>`;
+}
+
 function htmlDia(d) {
-    const { encarregados, integrantes, grupos } = pessoas(d);
-    const presentes = [...encarregados, ...integrantes].filter((p) => !p.ausencia).length;
+    const { encarregado, integrantes, grupos } = pessoas(d);
+    const presentes = integrantes.filter((p) => !p.ausencia).length + (encarregado && !encarregado.ausencia ? 1 : 0);
     const turma = turmaPorId(d.equipeId);
 
     return `
@@ -265,11 +297,7 @@ function htmlDia(d) {
                     <span class="dia-total">${presentes} ${presentes === 1 ? "pessoa" : "pessoas"}</span>
                 </div>
 
-                ${encarregados.length ? `
-                    <div class="dia-lider">
-                        <span class="lider-rotulo">${encarregados.length === 1 ? "Encarregado" : "Encarregados"}</span>
-                        <ul class="membros">${encarregados.map((p) => htmlPessoa(p, d, "membro--lider")).join("")}</ul>
-                    </div>` : ""}
+                ${htmlLider(d, encarregado)}
 
                 ${grupos.map((g) => `
                     <div class="dia-grupo" style="--cor-grupo:${esc(g.cor)}">
@@ -277,11 +305,24 @@ function htmlDia(d) {
                         <ul class="membros">${g.pessoas.map((p) => htmlPessoa(p, d)).join("")}</ul>
                     </div>`).join("")}
 
-                ${!encarregados.length && !integrantes.length
+                ${!integrantes.length
                     ? `<p class="sem-membros">Ninguém na ${esc(turma?.curto || "turma")}. Defina as turmas em Funcionários.</p>`
                     : presentes === 0 ? `<p class="sem-membros">Todos ausentes. Troque a turma deste dia.</p>` : ""}
             </div>
         </article>`;
+}
+
+function resumoEncarregados(dias) {
+    const lista = encarregados();
+    if (!lista.length) return "";
+    const conta = new Map(lista.map((f) => [f.id, 0]));
+    dias.forEach((d) => d.encarregadoId && conta.set(d.encarregadoId, (conta.get(d.encarregadoId) || 0) + 1));
+    return `<span class="resumo-sep" aria-hidden="true"></span>` + lista.map((f) => `
+        <div class="resumo-item resumo-item--lider">
+            <i class="fa-solid fa-star" aria-hidden="true"></i>
+            <strong>${esc(f.nome)}</strong>
+            <span>${conta.get(f.id)} ${conta.get(f.id) === 1 ? "dia" : "dias"}</span>
+        </div>`).join("");
 }
 
 function renderMes() {
@@ -295,7 +336,7 @@ function renderMes() {
     }
 
     const ativos = ativosDaEscala(funcionarios, tipoAtual);
-    const semTurma = ativos.filter((f) => !turmaDe(f) && !(modo() === "todos" && ehEncarregado(f, equipes))).length;
+    const semTurma = ativos.filter((f) => !turmaDe(f) && !ehEncarregado(f, equipes)).length;
 
     if (!ativos.some((f) => turmaDe(f))) {
         resumo.innerHTML = "";
@@ -312,14 +353,14 @@ function renderMes() {
 
     resumo.innerHTML = TURMAS.map((t) => {
         const nDias = dias.filter((d) => d.equipeId === t.id).length;
-        const nPessoas = ativos.filter((f) => turmaDe(f) === t.id && !(modo() === "todos" && ehEncarregado(f, equipes))).length;
+        const nPessoas = ativos.filter((f) => turmaDe(f) === t.id && !ehEncarregado(f, equipes)).length;
         return `
             <div class="resumo-item" style="--cor:${t.cor}">
                 <i class="vela" aria-hidden="true"></i>
                 <strong>${t.curto}</strong>
                 <span>${nDias} ${nDias === 1 ? "dia" : "dias"}, ${nPessoas} ${nPessoas === 1 ? "pessoa" : "pessoas"}</span>
             </div>`;
-    }).join("") + (semTurma
+    }).join("") + resumoEncarregados(dias) + (semTurma
         ? `<a class="resumo-item resumo-item--alerta" href="/pages/funcionarios.html?tipo=${tipoAtual}">
                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
                <strong>${semTurma} sem fim de semana</strong>
@@ -342,7 +383,30 @@ function renderMes() {
         </section>`).join("");
 }
 
+$("gradeDias").addEventListener("change", (e) => {
+    const sel = e.target.closest("select[data-lider]");
+    if (!sel) return;
+    const iso = sel.dataset.lider;
+    const dia = diasDoMesAtual().find((d) => d.data === iso);
+    const trocas = { ...(ajustes.encarregados || {}) };
+    if ((sel.value || null) === (dia?.encarregadoOriginalId || null)) delete trocas[iso];
+    else trocas[iso] = sel.value;
+    ajustes = { ...ajustes, encarregados: trocas };
+    marcarSujo();
+    renderMes();
+});
+
 $("gradeDias").addEventListener("click", (e) => {
+    const voltarLider = e.target.closest("[data-voltar-lider]");
+    if (voltarLider) {
+        const trocas = { ...(ajustes.encarregados || {}) };
+        delete trocas[voltarLider.dataset.voltarLider];
+        ajustes = { ...ajustes, encarregados: trocas };
+        marcarSujo();
+        renderMes();
+        return;
+    }
+
     // trocar a turma do dia
     const troca = e.target.closest("[data-troca]");
     if (troca) {
@@ -390,7 +454,7 @@ $("gradeDias").addEventListener("click", (e) => {
 
 $("btnSalvar").addEventListener("click", async () => {
     const retrato = diasDoMesAtual().map((d) => {
-        const { encarregados, integrantes } = pessoas(d);
+        const { encarregado, integrantes } = pessoas(d);
         const resumo = (p) => ({ id: p.id, nome: p.nome, equipeId: p.equipeId || null, ausencia: p.ausencia });
         return {
             data: d.data,
@@ -398,7 +462,7 @@ $("btnSalvar").addEventListener("click", async () => {
             feriado: d.feriado?.descricao || null,
             turma: d.equipeId,
             trocada: d.alterado,
-            encarregados: encarregados.map(resumo),
+            encarregado: encarregado ? resumo(encarregado) : null,
             integrantes: integrantes.map(resumo)
         };
     });
@@ -425,9 +489,109 @@ window.addEventListener("beforeunload", (e) => {
     e.returnValue = "";
 });
 
-// ======================================================
-// PDF
-// ======================================================
+// ------------------------------------------------------
+// Impressão por fim de semana
+// ------------------------------------------------------
+
+const modalImprimir = $("modalImprimir");
+
+modalImprimir.addEventListener("click", (e) => {
+    if (e.target === modalImprimir || e.target.closest("[data-fechar]")) modalImprimir.classList.add("hidden");
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") modalImprimir.classList.add("hidden");
+});
+
+// Plantões de um mês: cada fim de semana (sáb + dom, mesmo virando o mês)
+// e cada feriado em dia útil
+function plantoesDoMes(mes) {
+    const blocos = [];
+    const vistos = new Set();
+    const feriadosUteis = new Map(todosFeriados.filter((f) => f.data.startsWith(mes)).map((f) => [f.data, f]));
+
+    diasDoMesDe(mes).forEach((iso) => {
+        const d = diaDaSemana(iso);
+        if (d === 6 || d === 0) {
+            const sab = sabadoDoFimDeSemana(iso);
+            if (vistos.has(sab)) return;
+            vistos.add(sab);
+            blocos.push({ chave: sab, datas: [sab, somarDias(sab, 1)] });
+        } else if (feriadosUteis.has(iso)) {
+            blocos.push({ chave: iso, datas: [iso], feriado: feriadosUteis.get(iso).descricao });
+        }
+    });
+    return blocos;
+}
+
+function diasDoMesDe(mes) {
+    const [a, m] = mes.split("-").map(Number);
+    const total = new Date(Date.UTC(a, m, 0)).getUTCDate();
+    return Array.from({ length: total }, (_, i) => `${mes}-${String(i + 1).padStart(2, "0")}`);
+}
+
+function rotuloBloco(b) {
+    const [d1, d2] = b.datas;
+    const mes1 = NOMES_MES[Number(d1.slice(5, 7)) - 1];
+    if (b.datas.length === 1) return `${cap(NOMES_DIA[diaDaSemana(d1)])}, ${Number(d1.slice(8))} de ${mes1} (feriado)`;
+    const mes2 = NOMES_MES[Number(d2.slice(5, 7)) - 1];
+    return mes1 === mes2
+        ? `Sábado ${Number(d1.slice(8))} e domingo ${Number(d2.slice(8))} de ${mes1}`
+        : `Sábado ${Number(d1.slice(8))} de ${mes1} e domingo ${Number(d2.slice(8))} de ${mes2}`;
+}
+
+function blocoDaData(iso, blocos) {
+    const exato = blocos.find((b) => b.datas.includes(iso));
+    if (exato) return exato;
+    const sab = sabadoDoFimDeSemana(iso); // dia útil sem feriado: o fim de semana seguinte
+    return blocos.find((b) => b.chave === sab) || null;
+}
+
+function renderListaImpressao(marcar = null) {
+    const data = $("impData").value || hoje;
+    const blocos = plantoesDoMes(mesDe(data));
+    const escolhido = marcar ?? blocoDaData(data, blocos)?.chave;
+    $("impLista").innerHTML = blocos.map((b) => `
+        <label class="imp-item ${b.feriado ? "imp-item--feriado" : ""}">
+            <input type="checkbox" value="${b.chave}" ${b.chave === escolhido ? "checked" : ""}>
+            <span>${rotuloBloco(b)}${b.feriado ? `<small>${esc(b.feriado)}</small>` : ""}</span>
+        </label>`).join("") || `<p class="texto-apoio">Nenhum plantão neste mês.</p>`;
+}
+
+$("btnPDF").addEventListener("click", () => {
+    // sugere o próximo fim de semana dentro do mês aberto
+    const sugestao = mesAtual === mesDe(hoje) ? hoje : `${mesAtual}-01`;
+    $("impData").value = sugestao;
+    $("impDiurna").checked = true;
+    $("impNoturna").checked = true;
+    renderListaImpressao();
+    modalImprimir.classList.remove("hidden");
+    setTimeout(() => $("impData").focus(), 30);
+});
+
+$("impData").addEventListener("change", () => renderListaImpressao());
+
+// Escala de um tipo para um conjunto de datas (lê do Firestore o que não estiver aberto)
+const cacheConfig = {};
+const cacheAjustes = {};
+
+async function escalaDoTipo(tipo, datas) {
+    const cfg = tipo === tipoAtual ? config : (cacheConfig[tipo] ??= completarConfig(await lerConfig(tipo)));
+    const fer = todosFeriados.map((f) => ({ ...f, equipeFixaId: turmaFixaDoFeriado(f, tipo) }));
+    const encs = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => f.id);
+    const resultado = [];
+
+    for (const mes of [...new Set(datas.map(mesDe))]) {
+        const aj = tipo === tipoAtual && mes === mesAtual
+            ? ajustes
+            : (cacheAjustes[`${mes}-${tipo}`] ??= await lerAjustesDoMes(mes, tipo));
+        const dias = atribuirEncarregados(
+            gerarEscalaDoMes(mes, { equipes: TURMAS, feriados: fer, config: cfg || {}, ajustes: aj }),
+            { encarregados: encs, config: cfg || {}, modo: modoEncarregado(cfg, tipo), ajustes: aj }
+        );
+        dias.filter((d) => datas.includes(d.data)).forEach((d) => resultado.push({ dia: d, ajustes: aj }));
+    }
+    return resultado.sort((a, b) => a.dia.data.localeCompare(b.dia.data));
+}
 
 async function logoComoDataURL() {
     try {
@@ -450,113 +614,129 @@ function hexParaRGB(hex) {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-$("btnPDF").addEventListener("click", async () => {
+// cor da equipe bem clara, para o fundo da célula do grupo
+const clarear = (rgb) => rgb.map((c) => Math.round(c + (255 - c) * 0.86));
+
+$("formImprimir").addEventListener("submit", async (e) => {
+    e.preventDefault();
     if (!window.jspdf) {
         aviso("O gerador de PDF não carregou. Recarregue a página.", "erro");
         return;
     }
 
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "mm", "a4");
-    const largura = pdf.internal.pageSize.getWidth();
-    const dias = diasDoMesAtual();
-    const comAusencia = (p) => (p.ausencia ? `${p.nome} (${ROTULO_AUSENCIA[p.ausencia].toLowerCase()})` : p.nome);
+    const blocos = plantoesDoMes(mesDe($("impData").value || hoje));
+    const marcados = [...$("impLista").querySelectorAll("input:checked")].map((i) => i.value);
+    const selecionados = blocos.filter((b) => marcados.includes(b.chave));
+    const tipos = ["diurna", "noturna"].filter((t) => $(t === "diurna" ? "impDiurna" : "impNoturna").checked);
+    const agruparPor = e.target.querySelector('input[name="impGrupo"]:checked')?.value || "equipe";
 
-    const logo = await logoComoDataURL();
-    if (logo) pdf.addImage(logo, "JPEG", 14, 10, 54, 18);
+    if (!selecionados.length) return aviso("Marque pelo menos um fim de semana.", "erro");
+    if (!tipos.length) return aviso("Marque a escala diurna, a noturna ou as duas.", "erro");
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text(`${TIPOS[tipoAtual].rotulo} de plantão`, largura - 14, 17, { align: "right" });
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(12);
-    pdf.text(`Manutenção, ${tituloMes(mesAtual).toLowerCase()}`, largura - 14, 24, { align: "right" });
+    const bt = $("btnGerarPDF");
+    bt.disabled = true;
 
-    const corpo = dias.map((d) => {
-        const { encarregados, grupos } = pessoas(d);
-        const integrantes = grupos.map((g) => `${g.nome}: ${g.pessoas.map(comAusencia).join(", ")}`).join("\n");
-        const obs = [d.feriado ? `Feriado: ${d.feriado.descricao}` : "", d.alterado ? "Turma trocada" : ""]
-            .filter(Boolean).join(". ");
-        return [
-            dataCurta(d.data),
-            cap(NOMES_DIA[d.diaSemana]),
-            nomeTurma(d.equipeId),
-            encarregados.map(comAusencia).join(", ") || "-",
-            integrantes || "-",
-            obs
-        ];
-    });
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF("p", "mm", "a4");
+        const largura = pdf.internal.pageSize.getWidth();
+        const logo = await logoComoDataURL();
+        const comAusencia = (p) => (p.ausencia ? `${p.nome} (${ROTULO_AUSENCIA[p.ausencia].toLowerCase()})` : p.nome);
 
-    pdf.autoTable({
-        startY: 34,
-        head: [["Data", "Dia", "Turma", "Encarregado", "Integrantes", "Observação"]],
-        body: corpo,
-        styles: { fontSize: 8.5, cellPadding: 2.2, valign: "middle" },
-        headStyles: { fillColor: [27, 35, 48], textColor: 255 },
-        columnStyles: {
-            0: { cellWidth: 13, fontStyle: "bold" },
-            1: { cellWidth: 21 },
-            2: { cellWidth: 17, fontStyle: "bold" },
-            3: { cellWidth: 32, fontStyle: "bold" },
-            5: { cellWidth: 30 }
-        },
-        didParseCell: (data) => {
-            if (data.section !== "body") return;
-            const d = dias[data.row.index];
-            if (data.column.index === 2) {
-                data.cell.styles.fillColor = hexParaRGB(corTurma(d.equipeId));
-                data.cell.styles.textColor = 255;
-            } else if (data.column.index === 3) {
-                data.cell.styles.fillColor = [255, 244, 219];
-                data.cell.styles.textColor = [120, 78, 0];
-            } else if (d.feriado) {
-                data.cell.styles.fillColor = [253, 236, 236];
+        for (let bi = 0; bi < selecionados.length; bi++) {
+            const bloco = selecionados[bi];
+            if (bi > 0) pdf.addPage();
+
+            if (logo) pdf.addImage(logo, "JPEG", 14, 10, 48, 16);
+            pdf.setTextColor(27, 35, 48);
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(15);
+            pdf.text("Escala de plantão da manutenção", largura - 14, 16, { align: "right" });
+            pdf.setFont("helvetica", "normal");
+            pdf.setFontSize(11);
+            pdf.text(rotuloBloco(bloco) + ` de ${bloco.datas[0].slice(0, 4)}`, largura - 14, 22.5, { align: "right" });
+
+            let y = 34;
+            for (const tipo of tipos) {
+                const linhasDia = await escalaDoTipo(tipo, bloco.datas);
+                const turmas = [...new Set(linhasDia.map((l) => l.dia.equipeId))].map((t) => turmaPorId(t)?.curto).filter(Boolean);
+
+                pdf.setFont("helvetica", "bold");
+                pdf.setFontSize(12);
+                pdf.setTextColor(27, 35, 48);
+                pdf.text(`${TIPOS[tipo].rotulo}${turmas.length ? `: ${turmas.join(" e ")}` : ""}`, 14, y);
+
+                const corpo = [];
+                linhasDia.forEach(({ dia, ajustes: aj }) => {
+                    const { encarregado, grupos } = pessoasDoDia(dia, funcionarios, aj, tipo, equipes, agruparPor);
+                    const n = Math.max(1, grupos.length);
+                    const turma = turmaPorId(dia.equipeId);
+                    const diaTexto = `${cap(NOMES_DIA[dia.diaSemana])}\n${turma?.curto || ""}${dia.feriado ? `\nFeriado: ${dia.feriado.descricao}` : ""}`;
+                    const fundoDia = dia.feriado ? [253, 236, 236] : [255, 255, 255];
+
+                    const inicio = [
+                        { content: dataCurta(dia.data), rowSpan: n, styles: { fontStyle: "bold", fillColor: fundoDia, valign: "middle" } },
+                        { content: diaTexto, rowSpan: n, styles: { fillColor: fundoDia, valign: "middle" } },
+                        {
+                            content: encarregado ? comAusencia(encarregado) : "-",
+                            rowSpan: n,
+                            styles: { fontStyle: "bold", fillColor: [255, 244, 219], textColor: [120, 78, 0], valign: "middle" }
+                        }
+                    ];
+
+                    if (!grupos.length) {
+                        corpo.push([...inicio, { content: "-", colSpan: 2 }]);
+                        return;
+                    }
+                    grupos.forEach((g, i) => {
+                        const rgb = hexParaRGB(g.cor);
+                        const celulas = [
+                            { content: `${g.nome} (${g.pessoas.length})`, styles: { fontStyle: "bold", fillColor: clarear(rgb), textColor: [27, 35, 48] } },
+                            { content: g.pessoas.map(comAusencia).join(", ") }
+                        ];
+                        corpo.push(i === 0 ? [...inicio, ...celulas] : celulas);
+                    });
+                });
+
+                pdf.autoTable({
+                    startY: y + 3,
+                    head: [["Data", "Dia", "Encarregado", agruparPor === "cargo" ? "Cargo" : "Grupo", "Integrantes"]],
+                    body: corpo,
+                    theme: "grid",
+                    styles: { fontSize: 9, cellPadding: 2.4, valign: "middle", lineColor: [221, 226, 234], lineWidth: 0.2, textColor: [27, 35, 48] },
+                    headStyles: { fillColor: hexParaRGB(tipo === "diurna" ? "#0A9447" : "#3B3F96"), textColor: 255 },
+                    columnStyles: {
+                        0: { cellWidth: 15 },
+                        1: { cellWidth: 30 },
+                        2: { cellWidth: 36 },
+                        3: { cellWidth: 32 }
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+                y = pdf.lastAutoTable.finalY + 12;
             }
         }
-    });
 
-    // composição das turmas
-    const ativos = ativosDaEscala(funcionarios, tipoAtual);
-    const nomeEquipe = (id) => equipes.find((e) => e.id === id)?.nome || "Sem equipe";
-    const linhasTurma = TURMAS.map((t) => {
-        const daTurma = ativos.filter((f) => turmaDe(f) === t.id && !(modo() === "todos" && ehEncarregado(f, equipes)));
-        const porEquipe = new Map();
-        daTurma.forEach((f) => {
-            const k = nomeEquipe(f.equipeId);
-            porEquipe.set(k, [...(porEquipe.get(k) || []), f.nome]);
-        });
-        return [t.curto, [...porEquipe.entries()].map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n") || "-"];
-    });
-    if (modo() === "todos") {
-        const lideres = ativos.filter((f) => ehEncarregado(f, equipes)).map((f) => f.nome);
-        if (lideres.length) linhasTurma.unshift(["Encarregados", `${lideres.join(", ")} (nos dois fins de semana)`]);
-    }
-
-    pdf.autoTable({
-        startY: pdf.lastAutoTable.finalY + 10,
-        head: [["Turma", "Integrantes"]],
-        body: linhasTurma,
-        styles: { fontSize: 8.5, cellPadding: 2.4 },
-        headStyles: { fillColor: [27, 35, 48], textColor: 255 },
-        columnStyles: { 0: { cellWidth: 30, fontStyle: "bold" } },
-        didParseCell: (data) => {
-            if (data.section !== "body" || data.column.index !== 0) return;
-            const t = TURMAS.find((x) => x.curto === data.cell.raw);
-            data.cell.styles.fillColor = t ? hexParaRGB(t.cor) : [227, 154, 18];
-            data.cell.styles.textColor = 255;
+        const paginas = pdf.getNumberOfPages();
+        for (let p = 1; p <= paginas; p++) {
+            pdf.setPage(p);
+            pdf.setFontSize(8);
+            pdf.setTextColor(120);
+            pdf.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}${sujo ? " (com alterações não salvas)" : ""}`, 14, 290);
+            pdf.text(`Página ${p} de ${paginas}`, largura - 14, 290, { align: "right" });
         }
-    });
 
-    const paginas = pdf.getNumberOfPages();
-    for (let p = 1; p <= paginas; p++) {
-        pdf.setPage(p);
-        pdf.setFontSize(8);
-        pdf.setTextColor(120);
-        pdf.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}${sujo ? " (com alterações não salvas)" : ""}`, 14, 290);
-        pdf.text(`Página ${p} de ${paginas}`, largura - 14, 290, { align: "right" });
+        const nome = selecionados.length === 1
+            ? `Escala_${selecionados[0].chave}.pdf`
+            : `Escala_${selecionados.length}_plantoes_${mesDe(selecionados[0].chave)}.pdf`;
+        pdf.save(nome);
+        modalImprimir.classList.add("hidden");
+    } catch (erro) {
+        console.error(erro);
+        aviso("Não foi possível gerar o PDF.", "erro");
+    } finally {
+        bt.disabled = false;
     }
-
-    pdf.save(`Escala_${TIPOS[tipoAtual].curto}_${mesAtual}.pdf`);
 });
 
 // ======================================================
@@ -715,6 +895,7 @@ function preencherFormRotacao() {
     marcar("modo", config.modo);
     marcar("feriadoFds", config.feriadoNoFimDeSemana);
     marcar("modoEncarregado", modoEncarregado(config, tipoAtual));
+    preencherEncarregadoInicial(config.encarregadoInicialId);
     $("dataReferencia").value = config.dataReferencia;
     $("equipeInicial").value = turmaValida(config.equipeInicialId);
     $("feriadoEquipeInicial").value = turmaValida(config.feriadoEquipeInicialId);
@@ -729,8 +910,21 @@ function lerFormRotacao() {
         equipeInicialId: $("equipeInicial").value,
         feriadoEquipeInicialId: $("feriadoEquipeInicial").value,
         feriadoNoFimDeSemana: valor("feriadoFds", "feriado"),
-        encarregadoModo: valor("modoEncarregado", modoEncarregado(config, tipoAtual))
+        encarregadoModo: valor("modoEncarregado", modoEncarregado(config, tipoAtual)),
+        encarregadoInicialId: $("encarregadoInicial").value || config.encarregadoInicialId || null
     };
+}
+
+function preencherEncarregadoInicial(selecionado) {
+    const lista = encarregados();
+    const valido = lista.some((f) => f.id === selecionado) ? selecionado : lista[0]?.id;
+    $("encarregadoInicial").innerHTML = lista.length
+        ? lista.map((f) => `<option value="${esc(f.id)}" ${f.id === valido ? "selected" : ""}>${esc(f.nome)}</option>`).join("")
+        : `<option value="">Nenhum encarregado cadastrado</option>`;
+    $("encarregadoInicial").disabled = !lista.length;
+    $("ordemEncarregados").textContent = lista.length
+        ? `Ordem do revezamento: ${lista.map((f) => f.nome).join(", ")}.`
+        : "Marque o funcionário como encarregado no cadastro, em Funcionários.";
 }
 
 function renderPrevia() {
@@ -738,9 +932,10 @@ function renderPrevia() {
     if (!config) return;
 
     const rascunho = lerFormRotacao();
-    const modoRascunho = modoEncarregado(rascunho, tipoAtual);
     const dias = [0, 1, 2, 3]
-        .flatMap((n) => gerarEscalaDoMes(somarMeses(mesDe(hoje), n), { equipes: TURMAS, feriados, config: rascunho }))
+        .flatMap((n) => comEncarregados(
+            gerarEscalaDoMes(somarMeses(mesDe(hoje), n), { equipes: TURMAS, feriados, config: rascunho }), rascunho, {}
+        ))
         .filter((d) => d.data >= hoje);
 
     const blocos = new Map();
@@ -755,8 +950,8 @@ function renderPrevia() {
             ? `${dataCurta(bloco[0].data)} e ${dataCurta(bloco[1].data)}`
             : dataCurta(bloco[0].data);
         const sub = bloco[0].fimDeSemana ? "Fim de semana" : cap(NOMES_DIA[bloco[0].diaSemana]);
-        const lideres = [...new Set(bloco.flatMap((d) =>
-            pessoasDoDia(d, funcionarios, {}, tipoAtual, modoRascunho, equipes).encarregados.map((p) => p.nome)))];
+        const lideres = bloco.map((d) => (d.encarregadoId ? `${cap(NOMES_DIA_CURTO[d.diaSemana])} ${nomePessoa(d.encarregadoId)}` : null)).filter(Boolean);
+        const unico = new Set(bloco.map((d) => d.encarregadoId)).size === 1 && bloco[0].encarregadoId;
 
         return `
             <li>
@@ -767,7 +962,9 @@ function renderPrevia() {
                               title="${d.feriado ? esc(d.feriado.descricao) : ""}">
                             <i aria-hidden="true"></i>${cap(NOMES_DIA_CURTO[d.diaSemana])} ${nomeTurma(d.equipeId)}${d.feriado ? " (feriado)" : ""}
                         </span>`).join("")}
-                    ${lideres.length ? `<span class="pilula pilula--lider"><i class="fa-solid fa-star" aria-hidden="true"></i>${esc(lideres.join(", "))}</span>` : ""}
+                    ${unico
+                        ? `<span class="pilula pilula--lider"><i class="fa-solid fa-star" aria-hidden="true"></i>${esc(nomePessoa(bloco[0].encarregadoId))}</span>`
+                        : lideres.map((l) => `<span class="pilula pilula--lider"><i class="fa-solid fa-star" aria-hidden="true"></i>${esc(l)}</span>`).join("")}
                 </span>
             </li>`;
     }).join("");

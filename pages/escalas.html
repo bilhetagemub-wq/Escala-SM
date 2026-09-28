@@ -31,7 +31,7 @@
         </div>
         <div class="page-actions">
             <button id="btnPDF" class="bt bt-contorno">
-                <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Exportar PDF
+                <i class="fa-solid fa-print" aria-hidden="true"></i> Imprimir escala
             </button>
             <button id="btnSalvar" class="bt bt-principal">
                 <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salvar escala
@@ -72,7 +72,7 @@
 
         <p class="dica">
             <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
-            Troque a turma de um dia pelos botões A e B. Clique num nome para marcar férias ou afastamento.
+            Troque a turma pelos botões A e B e o encarregado pelo seletor. Clique num nome para marcar férias ou afastamento.
         </p>
 
         <div id="gradeDias" class="grade"></div>
@@ -185,20 +185,26 @@
                 <fieldset class="opcoes">
                     <legend>Encarregados</legend>
                     <label class="opcao">
-                        <input type="radio" name="modoEncarregado" value="todos">
+                        <input type="radio" name="modoEncarregado" value="ciclo">
                         <span>
-                            <strong>Trabalham nos dois fins de semana</strong>
-                            <small>O encarregado fica escalado no fim de semana A e no B. Padrão da escala diurna.</small>
+                            <strong>Um encarregado a cada 2 fins de semana</strong>
+                            <small>O mesmo encarregado cuida do fim de semana A e do B, sábado e domingo. Depois entra o próximo. Padrão da escala diurna.</small>
                         </span>
                     </label>
                     <label class="opcao">
-                        <input type="radio" name="modoEncarregado" value="turma">
+                        <input type="radio" name="modoEncarregado" value="dia">
                         <span>
-                            <strong>Seguem a própria turma</strong>
-                            <small>O encarregado trabalha só no fim de semana da turma dele. Padrão da escala noturna.</small>
+                            <strong>Um encarregado por dia</strong>
+                            <small>Sábado e domingo com encarregados diferentes, em sequência. Padrão da escala noturna.</small>
                         </span>
                     </label>
                 </fieldset>
+
+                <label class="campo">
+                    <span>Encarregado do fim de semana de partida</span>
+                    <select id="encarregadoInicial"></select>
+                </label>
+                <p class="texto-apoio" id="ordemEncarregados"></p>
 
                 <label class="campo">
                     <span>Primeiro feriado da lista fica com</span>
@@ -240,6 +246,56 @@
     </section>
 
 </main>
+
+<!-- MODAL IMPRESSÃO -->
+<div class="modal-fundo hidden" id="modalImprimir" role="dialog" aria-modal="true" aria-labelledby="tituloImprimir">
+    <form class="modal-caixa" id="formImprimir" novalidate>
+        <div class="modal-topo">
+            <h2 id="tituloImprimir">Imprimir escala</h2>
+            <button type="button" class="bt-icone" data-fechar aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-corpo">
+            <label class="campo">
+                <span>Data</span>
+                <input type="date" id="impData" required>
+            </label>
+            <p class="texto-apoio imp-dica">Escolha qualquer dia: o fim de semana dessa data já vem marcado. Marque outros se quiser imprimir mais de um, cada um sai numa página.</p>
+
+            <div class="campo">
+                <span>Fins de semana e feriados do mês</span>
+                <div id="impLista" class="imp-lista"></div>
+            </div>
+
+            <fieldset class="opcoes opcoes--linha">
+                <legend>Agrupar integrantes por</legend>
+                <label class="opcao opcao--curta">
+                    <input type="radio" name="impGrupo" value="equipe" checked>
+                    <span><strong>Equipe</strong><small>Função ou setor (Elétrica, Mecânica...)</small></span>
+                </label>
+                <label class="opcao opcao--curta">
+                    <input type="radio" name="impGrupo" value="cargo">
+                    <span><strong>Cargo</strong><small>Eletricista, Mecânico...</small></span>
+                </label>
+            </fieldset>
+
+            <fieldset class="opcoes opcoes--linha">
+                <legend>Escalas</legend>
+                <label class="alternar"><input type="checkbox" id="impDiurna" checked><span>Diurna</span></label>
+                <label class="alternar"><input type="checkbox" id="impNoturna" checked><span>Noturna</span></label>
+            </fieldset>
+        </div>
+
+        <div class="modal-rodape">
+            <div class="direita">
+                <button type="button" class="bt bt-contorno" data-fechar>Cancelar</button>
+                <button type="submit" class="bt bt-principal" id="btnGerarPDF">
+                    <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Gerar PDF
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>

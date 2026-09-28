@@ -7,10 +7,11 @@ import { montarLayout } from "./layout.js";
 import {
     lerColecao, lerConfig, salvarConfig, lerAjustesDoMes, ordenarEquipes,
     ROTULO_AUSENCIA, TIPOS, TURMAS, turmaPorId, turmaDe, turmaFixaDoFeriado,
-    modoEncarregado, pessoasDoDia, ativosDaEscala, ehEncarregado, esc
+    modoEncarregado, pessoasDoDia, ativosDaEscala, ehEncarregado, esc,
+    encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
 import {
-    gerarEscalaDoMes, distribuirFeriados, sabadoDoFimDeSemana,
+    gerarEscalaDoMes, distribuirFeriados, sabadoDoFimDeSemana, atribuirEncarregados,
     somarDias, hojeISO, mesDe, NOMES_DIA, NOMES_DIA_CURTO, NOMES_MES, dataCurta, diaDaSemana
 } from "./escala-engine.js";
 
@@ -26,13 +27,14 @@ const hoje = hojeISO();
 // Próximo plantão de uma escala: fim de semana atual (ou o próximo),
 // com o feriado mais próximo na frente se ele vier antes
 async function plantaoDaEscala(tipo, equipes, funcionarios, todosFeriados) {
-    let config = await lerConfig(tipo);
-    if (!config.existe) {
-        config = { ...config, dataReferencia: sabadoDoFimDeSemana(hoje), equipeInicialId: "A", feriadoEquipeInicialId: "A", existe: true };
+    let config = completarConfig(await lerConfig(tipo));
+    if (config.novo) {
+        config = { ...config, existe: true, novo: false };
         salvarConfig(tipo, config).catch((erro) => console.error(erro));
     }
 
     const modo = modoEncarregado(config, tipo);
+    const lideres = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => f.id);
     const feriados = todosFeriados.map((f) => ({ ...f, equipeFixaId: turmaFixaDoFeriado(f, tipo) }));
     const temTurmas = ativosDaEscala(funcionarios, tipo).some((f) => turmaDe(f));
 
@@ -47,13 +49,16 @@ async function plantaoDaEscala(tipo, equipes, funcionarios, todosFeriados) {
         await Promise.all(meses.map(async (m) => [m, await lerAjustesDoMes(m, tipo)]))
     );
     const escalaPorMes = Object.fromEntries(meses.map((m) => [
-        m, gerarEscalaDoMes(m, { equipes: TURMAS, feriados, config, ajustes: ajustesPorMes[m] })
+        m, atribuirEncarregados(
+            gerarEscalaDoMes(m, { equipes: TURMAS, feriados, config, ajustes: ajustesPorMes[m] }),
+            { encarregados: lideres, config, modo, ajustes: ajustesPorMes[m] }
+        )
     ]));
 
     const dias = datas
         .map((iso) => escalaPorMes[mesDe(iso)].find((d) => d.data === iso))
         .filter(Boolean)
-        .map((d) => ({ ...d, ...pessoasDoDia(d, funcionarios, ajustesPorMes[mesDe(d.data)], tipo, modo, equipes) }));
+        .map((d) => ({ ...d, ...pessoasDoDia(d, funcionarios, ajustesPorMes[mesDe(d.data)], tipo, equipes) }));
 
     return { tipo, dias, temTurmas, feriados: distribuidos.filter((f) => f.data >= hoje) };
 }
@@ -85,18 +90,19 @@ function htmlPlantao({ tipo, dias, temTurmas }) {
                         <p class="plantao-quando">${quando}, ${dataCurta(d.data)}</p>
                         <h3 class="plantao-equipe">${esc(t?.nome || "Sem turma")}</h3>
                         ${d.feriado ? `<p class="plantao-feriado">Feriado: ${esc(d.feriado.descricao)}</p>` : ""}
-                        ${d.encarregados.length ? `
-                            <p class="plantao-lider">
+                        ${d.encarregado ? `
+                            <p class="plantao-lider ${d.encarregado.ausencia ? "ausente" : ""}">
                                 <i class="fa-solid fa-star" aria-hidden="true"></i>
-                                <span>${d.encarregados.length === 1 ? "Encarregado" : "Encarregados"}</span>
-                                <strong>${d.encarregados.map((p) => esc(p.nome) + (p.ausencia ? ` (${ROTULO_AUSENCIA[p.ausencia].toLowerCase()})` : "")).join(", ")}</strong>
+                                <span>Encarregado</span>
+                                <strong>${esc(d.encarregado.nome)}</strong>
+                                ${d.encarregado.ausencia ? `<small>${ROTULO_AUSENCIA[d.encarregado.ausencia]}</small>` : ""}
                             </p>` : ""}
                         ${d.grupos.map((g) => `
                             <div class="plantao-grupo">
                                 <span class="plantao-grupo-nome" style="--cor-grupo:${esc(g.cor)}"><i aria-hidden="true"></i>${esc(g.nome)}</span>
                                 <ul class="plantao-membros">${g.pessoas.map(nome).join("")}</ul>
                             </div>`).join("")}
-                        ${!d.grupos.length && !d.encarregados.length ? `<p class="texto-apoio">Ninguém nesta turma.</p>` : ""}
+                        ${!d.grupos.length ? `<p class="texto-apoio">Ninguém nesta turma.</p>` : ""}
                     </article>`;
             }).join("")}
         </section>`;
@@ -130,10 +136,9 @@ function renderTurmas(funcionarios, equipes, configs) {
     el.innerHTML = ["diurna", "noturna"].map((tipo) => {
         const ativos = ativosDaEscala(funcionarios, tipo);
         if (!ativos.length) return "";
-        const todos = modoEncarregado(configs[tipo], tipo) === "todos";
         const lideres = ativos.filter((f) => ehEncarregado(f, equipes));
-        const conta = (id) => ativos.filter((f) => turmaDe(f) === id && !(todos && ehEncarregado(f, equipes))).length;
-        const sem = ativos.filter((f) => !turmaDe(f) && !(todos && ehEncarregado(f, equipes))).length;
+        const conta = (id) => ativos.filter((f) => turmaDe(f) === id && !ehEncarregado(f, equipes)).length;
+        const sem = ativos.filter((f) => !turmaDe(f) && !ehEncarregado(f, equipes)).length;
 
         return `<li class="grupo">${TIPOS[tipo].rotulo}</li>` +
             TURMAS.map((t) => `
@@ -144,7 +149,7 @@ function renderTurmas(funcionarios, equipes, configs) {
                 </li>`).join("") +
             (lideres.length ? `
                 <li>
-                    <span class="principal">Encarregados<small>${todos ? "Nos dois fins de semana" : "Com a própria turma"}</small></span>
+                    <span class="principal">Encarregados<small>${modoEncarregado(configs[tipo], tipo) === "ciclo" ? "Um a cada 2 fins de semana" : "Um por dia, sábado e domingo diferentes"}</small></span>
                     <span class="lado">${lideres.length}</span>
                 </li>` : "") +
             (sem ? `

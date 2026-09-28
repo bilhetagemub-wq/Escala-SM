@@ -11,7 +11,8 @@ import { db } from "./firebase.js";
 import { montarLayout, aviso } from "./layout.js";
 import {
     ouvirEquipes, ouvirFuncionarios, lerConfig, CORES_EQUIPE, TIPOS, TURMAS, esc, iniciais,
-    tipoDoFuncionario, turmaDe, ehEncarregado, modoEncarregado, ordenarPorEquipe, proximaCor, normalizar
+    tipoDoFuncionario, turmaDe, ehEncarregado, modoEncarregado, ordenarPorEquipe, proximaCor, normalizar,
+    TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
 import { equipeDoFimDeSemana, sabadoDoFimDeSemana, somarDias, hojeISO, dataCurta } from "./escala-engine.js";
 import { iniciarImportacao, exportarPlanilha } from "./importacao.js";
@@ -49,7 +50,7 @@ ouvirFuncionarios((l) => { funcionarios = l; pronto.funcionarios = true; pedirRe
 
 async function carregarConfig(tipo) {
     try {
-        configs[tipo] = await lerConfig(tipo);
+        configs[tipo] = completarConfig(await lerConfig(tipo));
     } catch (erro) {
         console.error(erro);
         configs[tipo] = {};
@@ -143,11 +144,9 @@ function htmlListaAgrupada(pessoas) {
 }
 
 function htmlTurma(turma) {
-    const todosDaTurma = daEscala().filter((f) => turmaDe(f) === turma.id && !(modo() === "todos" && lider(f)));
+    const todosDaTurma = daEscala().filter((f) => turmaDe(f) === turma.id && !lider(f));
     const visiveis = todosDaTurma.filter(passaNoFiltro);
     const ativos = todosDaTurma.filter((f) => f.status !== "Inativo").length;
-    const lideres = daEscala().filter((f) => f.status !== "Inativo" && lider(f) &&
-        (modo() === "todos" || turmaDe(f) === turma.id)).map((f) => f.nome);
     const prox = proximoPlantao(turma.id);
 
     return `
@@ -159,10 +158,6 @@ function htmlTurma(turma) {
                     <p>${ativos} ${ativos === 1 ? "pessoa" : "pessoas"}${prox ? `, próximo plantão ${dataCurta(prox)}` : ""}</p>
                 </div>
             </header>
-            <p class="turma-lider ${lideres.length ? "" : "vazio"}">
-                <i class="fa-solid fa-star" aria-hidden="true"></i>
-                ${lideres.length ? `Encarregado: <strong>${esc(lideres.join(", "))}</strong>` : "Sem encarregado nesta turma"}
-            </p>
             <div class="lista-cards" data-turma="${turma.id}">
                 ${htmlListaAgrupada(visiveis) || `<p class="lista-vazia">${todosDaTurma.length ? "Ninguém nesta turma com o filtro atual" : "Arraste funcionários para cá"}</p>`}
             </div>
@@ -170,7 +165,7 @@ function htmlTurma(turma) {
 }
 
 function htmlSemTurma() {
-    const todos = daEscala().filter((f) => !turmaDe(f) && !(modo() === "todos" && lider(f)));
+    const todos = daEscala().filter((f) => !turmaDe(f) && !lider(f));
     const visiveis = todos.filter(passaNoFiltro);
 
     return `
@@ -185,14 +180,14 @@ function htmlSemTurma() {
         </section>`;
 }
 
-function htmlLideresTodos() {
-    const lideres = daEscala().filter((f) => lider(f));
+function htmlLideres() {
+    const lideres = daEscala().filter((f) => lider(f)).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     const visiveis = lideres.filter(passaNoFiltro);
     return `
         <section class="faixa faixa--lider">
             <header class="faixa-topo">
                 <h2><i class="fa-solid fa-star" aria-hidden="true"></i> Encarregados <span class="contagem">${lideres.filter((f) => f.status !== "Inativo").length}</span></h2>
-                <p>Trabalham nos dois fins de semana, A e B. Para mudar, use a aba Rotação da escala.</p>
+                <p>${TEXTO_MODO_ENCARREGADO[modo()]}. A ordem e a regra ficam na aba Rotação da escala.</p>
             </header>
             <div class="lista-cards lista-cards--faixa lista-fixa">
                 ${visiveis.map(htmlCard).join("") || `<p class="lista-vazia">Nenhum encarregado. Marque no cadastro do funcionário.</p>`}
@@ -222,7 +217,7 @@ function render() {
     atualizarSeletor();
 
     quadro.innerHTML = `
-        ${modo() === "todos" ? htmlLideresTodos() : ""}
+        ${htmlLideres()}
         <div class="turmas">
             ${TURMAS.map(htmlTurma).join("")}
         </div>
@@ -407,9 +402,9 @@ function atualizarCargos() {
 
 function atualizarTextoLider() {
     const tipo = $("funcTurno").value === "Noturno" ? "noturna" : "diurna";
-    $("textoLider").textContent = modoEncarregado(configs[tipo], tipo) === "todos"
-        ? "Aparece em destaque e trabalha nos dois fins de semana, A e B."
-        : "Aparece em destaque e trabalha no fim de semana da turma dele.";
+    $("textoLider").textContent = modoEncarregado(configs[tipo], tipo) === "ciclo"
+        ? "Fica fora das turmas e reveza com os outros encarregados: cada um cuida de 2 fins de semana seguidos (A e B)."
+        : "Fica fora das turmas e reveza com os outros encarregados: um no sábado, outro no domingo.";
 }
 
 function abrirFuncionario(id) {
@@ -431,13 +426,21 @@ function abrirFuncionario(id) {
     $("funcLider").checked = f ? lider(f) : false;
     liderMarcadoAMao = f ? typeof f.lider === "boolean" : false;
     atualizarTextoLider();
+    travarTurma();
     $("btnExcluirFunc").classList.toggle("hidden", !f);
 
     abrirModal(modalFunc, $("funcNome"));
 }
 
 $("funcTurno").addEventListener("change", atualizarTextoLider);
-$("funcLider").addEventListener("change", () => { liderMarcadoAMao = true; });
+$("funcLider").addEventListener("change", () => { liderMarcadoAMao = true; travarTurma(); });
+
+// encarregado não pertence a turma: o revezamento dele é próprio
+function travarTurma() {
+    const ehLider = $("funcLider").checked;
+    $("funcTurma").disabled = ehLider;
+    $("funcTurma").title = ehLider ? "Encarregados revezam entre si, fora das turmas" : "";
+}
 
 // cargo ou equipe "Encarregado" marcam a caixa sozinhos, até a pessoa mexer nela
 function sugerirLider() {
@@ -445,6 +448,7 @@ function sugerirLider() {
     const equipe = equipePorId($("funcEquipe").value);
     $("funcLider").checked =
         normalizar($("funcFuncao").value).includes("encarregad") || normalizar(equipe?.nome).includes("encarregad");
+    travarTurma();
 }
 $("funcFuncao").addEventListener("input", sugerirLider);
 $("funcEquipe").addEventListener("change", sugerirLider);

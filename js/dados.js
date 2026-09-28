@@ -12,7 +12,7 @@
 //   escalas/{AAAA-MM}-{tipo}  { trocas, ausencias, encarregados, dias (retrato salvo), atualizadoEm }
 
 import { db } from "./firebase.js";
-import { CONFIG_PADRAO } from "./escala-engine.js";
+import { CONFIG_PADRAO, sabadoDoFimDeSemana, hojeISO } from "./escala-engine.js";
 
 import {
     collection,
@@ -109,20 +109,31 @@ export function ehEncarregado(f, equipes = []) {
     return normalizar(equipe?.nome).includes("encarregad");
 }
 
-// "todos": trabalha nos dois fins de semana (padrão da diurna)
-// "turma": trabalha só no fim de semana da turma dele (padrão da noturna)
-export const MODO_ENCARREGADO_PADRAO = { diurna: "todos", noturna: "turma" };
+// "ciclo": um encarregado a cada 2 fins de semana (A e B), padrão da diurna
+// "dia":   um encarregado por dia, sábado e domingo diferentes, padrão da noturna
+export const MODO_ENCARREGADO_PADRAO = { diurna: "ciclo", noturna: "dia" };
 
 export function modoEncarregado(config, tipo) {
     const m = config?.encarregadoModo;
-    if (m === "todos" || m === "proprio") return "todos";
-    if (m === "turma" || m === "equipe") return "turma";
+    if (m === "ciclo" || m === "dia") return m;
     return MODO_ENCARREGADO_PADRAO[tipo];
 }
+
+export const TEXTO_MODO_ENCARREGADO = {
+    ciclo: "Um encarregado a cada 2 fins de semana (cobre A e B, sábado e domingo)",
+    dia: "Um encarregado por dia: sábado e domingo com encarregados diferentes"
+};
 
 // Funcionários ativos de uma escala
 export const ativosDaEscala = (funcionarios, tipo) =>
     funcionarios.filter((f) => f.status !== "Inativo" && tipoDoFuncionario(f) === tipo);
+
+// Encarregados ativos da escala, em ordem alfabética (é a ordem do revezamento)
+export function encarregadosDaEscala(funcionarios, tipo, equipes) {
+    return ativosDaEscala(funcionarios, tipo)
+        .filter((f) => ehEncarregado(f, equipes))
+        .sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
+}
 
 // Ordena por equipe (na ordem das equipes) e nome
 export function ordenarPorEquipe(lista, equipes) {
@@ -133,37 +144,49 @@ export function ordenarPorEquipe(lista, equipes) {
     );
 }
 
-// Quem trabalha no dia (dia.equipeId é a turma: "A" ou "B")
-// Devolve os encarregados em destaque e os demais agrupados por equipe.
-export function pessoasDoDia(dia, funcionarios, ajustes, tipo, modo, equipes) {
+// Agrupa pessoas por equipe (função/setor) ou por cargo
+export function agruparPessoas(pessoas, equipes, por = "equipe") {
+    const grupos = [];
+    const ordenadas = por === "cargo"
+        ? [...pessoas].sort((a, b) => (a.funcao || "~").localeCompare(b.funcao || "~") || (a.nome || "").localeCompare(b.nome || ""))
+        : ordenarPorEquipe(pessoas, equipes);
+
+    ordenadas.forEach((f) => {
+        let chave, nome, cor;
+        if (por === "cargo") {
+            chave = normalizar(f.funcao) || "";
+            nome = f.funcao || "Sem cargo";
+            cor = "#8b93a1";
+        } else {
+            const e = equipes.find((x) => x.id === f.equipeId);
+            chave = e?.id || "";
+            nome = e?.nome || "Sem equipe";
+            cor = e?.cor || "#8b93a1";
+        }
+        let g = grupos.find((x) => x.chave === chave);
+        if (!g) grupos.push((g = { chave, nome, cor, pessoas: [] }));
+        g.pessoas.push(f);
+    });
+    return grupos;
+}
+
+// Quem trabalha no dia (dia.equipeId é a turma: "A" ou "B"; dia.encarregadoId vem
+// de atribuirEncarregados). Encarregados nunca entram na lista de integrantes.
+export function pessoasDoDia(dia, funcionarios, ajustes, tipo, equipes, agruparPor = "equipe") {
     const ausencias = ajustes?.ausencias?.[dia.data] || {};
     const comAusencia = (f) => ({ ...f, ausencia: ausencias[f.id] || null });
     const ativos = ativosDaEscala(funcionarios, tipo);
 
-    const encarregados = ordenarPorEquipe(
-        ativos.filter((f) => ehEncarregado(f, equipes) && (modo === "todos" || turmaDe(f) === dia.equipeId)),
-        equipes
-    ).map(comAusencia);
+    const lider = dia.encarregadoId ? ativos.find((f) => f.id === dia.encarregadoId) : null;
+    const integrantes = ativos
+        .filter((f) => !ehEncarregado(f, equipes) && turmaDe(f) === dia.equipeId)
+        .map(comAusencia);
 
-    const integrantes = ordenarPorEquipe(
-        ativos.filter((f) => !ehEncarregado(f, equipes) && turmaDe(f) === dia.equipeId),
-        equipes
-    ).map(comAusencia);
-
-    // agrupa por equipe, na ordem das equipes; sem equipe por último
-    const grupos = [];
-    integrantes.forEach((f) => {
-        const id = equipes.some((e) => e.id === f.equipeId) ? f.equipeId : "";
-        let g = grupos.find((x) => x.equipeId === id);
-        if (!g) {
-            const e = equipes.find((x) => x.id === id);
-            g = { equipeId: id, nome: e?.nome || "Sem equipe", cor: e?.cor || "#8b93a1", pessoas: [] };
-            grupos.push(g);
-        }
-        g.pessoas.push(f);
-    });
-
-    return { encarregados, integrantes, grupos };
+    return {
+        encarregado: lider ? comAusencia(lider) : null,
+        integrantes,
+        grupos: agruparPessoas(integrantes, equipes, agruparPor)
+    };
 }
 
 export function proximaCor(equipes) {
@@ -229,8 +252,23 @@ export async function lerConfig(tipo = "diurna") {
     return snap.exists() ? { ...CONFIG_PADRAO, ...snap.data(), existe: true } : { ...CONFIG_PADRAO, existe: false };
 }
 
+// Escala ainda sem rodízio salvo: parte deste fim de semana com a turma A.
+// Todas as telas usam esta mesma regra, para mostrarem sempre a mesma turma.
+export function completarConfig(config) {
+    if (config?.existe) return config;
+    return {
+        ...CONFIG_PADRAO,
+        ...config,
+        dataReferencia: sabadoDoFimDeSemana(hojeISO()),
+        equipeInicialId: "A",
+        feriadoEquipeInicialId: "A",
+        existe: false,
+        novo: true
+    };
+}
+
 export async function salvarConfig(tipo, config) {
-    const { existe, atualizadoEm, ...dados } = config;
+    const { existe, novo, atualizadoEm, ...dados } = config;
     await setDoc(doc(db, "config", `escala-${tipo}`), { ...dados, tipo, atualizadoEm: serverTimestamp() }, { merge: true });
 }
 

@@ -236,6 +236,49 @@ export function integrantesDoDia(dia, funcionarios, ajustes = {}, excluir = new 
 }
 
 // ------------------------------------------------------
+// Encarregado do dia
+// ------------------------------------------------------
+//
+// modo "ciclo" (diurna): um encarregado a cada 2 fins de semana seguidos
+//   (o fim de semana A e o B, sábado e domingo). No ciclo seguinte entra
+//   o próximo da lista.
+// modo "dia" (noturna): um encarregado por dia, em sequência
+//   (sáb, dom, sáb, dom...). Com dois encarregados, cada um fica com um dia.
+//
+// Feriado em dia útil: de segunda a quarta fica com o encarregado do fim de
+// semana anterior (no modo "dia", o de domingo); de quinta e sexta, com o seguinte.
+// ajustes.encarregados = { "AAAA-MM-DD": funcionarioId | "" }  (troca manual; "" = nenhum)
+
+export function atribuirEncarregados(dias, { encarregados, config = {}, modo = "ciclo", ajustes = {} }) {
+    const n = encarregados.length;
+    const validos = new Set(encarregados);
+    const trocas = ajustes.encarregados || {};
+    const inicial = Math.max(0, encarregados.indexOf(config.encarregadoInicialId));
+
+    return dias.map((d) => {
+        let original = null;
+        if (n) {
+            // feriado de segunda a quarta emenda com o fim de semana anterior;
+            // de quinta e sexta, com o seguinte
+            const anterior = !d.fimDeSemana && d.diaSemana <= 3;
+            const ancora = anterior ? somarDias(d.data, -(d.diaSemana + 1)) : d.data;
+            const semanas = semanasDesdeReferencia(ancora, config);
+            const domingo = (d.fimDeSemana && d.diaSemana === 0) || anterior ? 1 : 0;
+            const passo = modo === "dia" ? semanas * 2 + domingo : Math.floor(semanas / 2);
+            original = encarregados[mod(inicial + passo, n)];
+        }
+
+        let encarregadoId = original;
+        if (Object.prototype.hasOwnProperty.call(trocas, d.data)) {
+            const t = trocas[d.data];
+            if (t === "" || validos.has(t)) encarregadoId = t || null;
+        }
+
+        return { ...d, encarregadoId, encarregadoOriginalId: original, encarregadoAlterado: encarregadoId !== original };
+    });
+}
+
+// ------------------------------------------------------
 // Feriados nacionais do Brasil
 // ------------------------------------------------------
 

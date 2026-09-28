@@ -552,27 +552,70 @@
 }
 
 .dia-lider{
-    padding:8px 10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 6px 6px 8px;
     border-radius:var(--raio-m);
     background:#FFF4DB;
     border:1px solid #F1D9A3;
-    display:grid;
-    gap:6px;
 }
 
-.lider-rotulo{
-    font-size:12px;
-    font-weight:700;
+.dia-lider.vazio-lider{ background:none; border-style:dashed; border-color:var(--linha); }
+.dia-lider.ausente{ background:#fdecec; border-color:#f3c5c7; }
+
+.lider-icone{
+    width:28px;
+    height:28px;
+    flex:0 0 auto;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#E39A12;
+    color:#fff;
+    font-size:13px;
+}
+
+.vazio-lider .lider-icone{ background:var(--linha); color:var(--tinta-3); }
+
+.lider-campo{ flex:1; min-width:0; display:flex; flex-direction:column; }
+
+.lider-rotulo{ font-size:11px; font-weight:700; color:#8a5a00; line-height:1.2; }
+.vazio-lider .lider-rotulo{ color:var(--tinta-3); }
+
+.lider-campo select{
+    font:700 15px var(--fonte);
+    color:var(--tinta);
+    background:transparent;
+    border:none;
+    padding:0;
+    width:100%;
+    cursor:pointer;
+    text-overflow:ellipsis;
+}
+
+.dia-lider.ausente .lider-campo select{ text-decoration:line-through; color:var(--tinta-3); }
+
+.lider-ausencia{
+    flex:0 0 auto;
+    min-width:30px;
+    height:30px;
+    padding:0 8px;
+    border-radius:var(--raio-s);
+    background:rgba(255,255,255,.7);
     color:#8a5a00;
+    font:700 12px var(--fonte);
 }
 
-.membro--lider{
-    background:#fff;
-    border-color:#F1D9A3;
-    font-weight:600;
-}
+.dia-lider.ausente .lider-ausencia{ color:#b4232a; }
+.lider-ausencia:hover{ background:#fff; }
 
-.membro--lider i{ color:#E39A12; font-size:11px; }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+.resumo-sep{ width:1px; align-self:stretch; background:var(--linha); margin:0 4px; }
+.resumo-item--lider{ background:#FFF4DB; border-color:#F1D9A3; }
+.resumo-item--lider > i{ color:#E39A12; }
 
 .dia-grupo{
     display:grid;
@@ -612,3 +655,35 @@
     .dia-vela strong{ font-size:24px; }
     .dia-vela em{ font-size:24px; }
 }
+
+/* =====================================================
+   MODAL DE IMPRESSÃO
+===================================================== */
+
+.imp-dica{ margin:-8px 0 0; }
+
+.imp-lista{
+    display:grid;
+    gap:6px;
+    max-height:260px;
+    overflow:auto;
+}
+
+.imp-item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:9px 12px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    cursor:pointer;
+    font-weight:500;
+}
+
+.imp-item:has(input:checked){ border-color:var(--sm-verde); background:#f3fbf6; }
+.imp-item input{ margin-top:3px; width:16px; height:16px; accent-color:var(--sm-verde); }
+.imp-item small{ display:block; color:#b4232a; font-size:13px; }
+
+.opcoes--linha{ display:flex; flex-wrap:wrap; gap:8px 16px; }
+.opcoes--linha legend{ width:100%; }
+.opcao--curta{ flex:1 1 170px; padding:10px 12px; }
