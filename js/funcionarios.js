@@ -10,7 +10,7 @@
 import { db } from "./firebase.js";
 import { montarLayout, aviso } from "./layout.js";
 import {
-    ouvirEquipes, ouvirFuncionarios, lerConfig, CORES_EQUIPE, TIPOS, TURMAS, esc, iniciais,
+    ouvirEquipes, ouvirFuncionarios, lerConfig, CORES_EQUIPE, TIPOS, turmasDe, encarregadoForaDasTurmas, esc, iniciais,
     tipoDoFuncionario, turmaDe, ehEncarregado, modoEncarregado, ordenarPorEquipe, proximaCor, normalizar,
     TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
@@ -50,7 +50,7 @@ ouvirFuncionarios((l) => { funcionarios = l; pronto.funcionarios = true; pedirRe
 
 async function carregarConfig(tipo) {
     try {
-        configs[tipo] = completarConfig(await lerConfig(tipo));
+        configs[tipo] = completarConfig(await lerConfig(tipo), tipo);
     } catch (erro) {
         console.error(erro);
         configs[tipo] = {};
@@ -73,6 +73,9 @@ const equipePorId = (id) => equipes.find((e) => e.id === id);
 const lider = (f) => ehEncarregado(f, equipes);
 const daEscala = (tipo = tipoAtual) => funcionarios.filter((f) => tipoDoFuncionario(f) === tipo);
 const modo = () => modoEncarregado(configs[tipoAtual], tipoAtual);
+const turmas = () => turmasDe(tipoAtual);
+// encarregado fora das turmas (diurna): fica na faixa própria; na noturna, vai para a noite dele
+const liderSolto = (f) => lider(f) && encarregadoForaDasTurmas(configs[tipoAtual], tipoAtual);
 
 function passaNoFiltro(f) {
     if (!filtro.inativos && f.status === "Inativo") return false;
@@ -91,8 +94,8 @@ function proximoPlantao(turma) {
     if (!cfg) return null;
     let sab = sabadoDoFimDeSemana(hojeISO());
     for (let i = 0; i < 8; i++, sab = somarDias(sab, 7)) {
-        const noSab = equipeDoFimDeSemana(sab, cfg, TURMAS) === turma;
-        const noDom = equipeDoFimDeSemana(somarDias(sab, 1), cfg, TURMAS) === turma;
+        const noSab = equipeDoFimDeSemana(sab, cfg, turmas()) === turma;
+        const noDom = equipeDoFimDeSemana(somarDias(sab, 1), cfg, turmas()) === turma;
         if (noSab) return sab;
         if (noDom) return somarDias(sab, 1);
     }
@@ -144,7 +147,7 @@ function htmlListaAgrupada(pessoas) {
 }
 
 function htmlTurma(turma) {
-    const todosDaTurma = daEscala().filter((f) => turmaDe(f) === turma.id && !lider(f));
+    const todosDaTurma = daEscala().filter((f) => turmaDe(f) === turma.id && !liderSolto(f));
     const visiveis = todosDaTurma.filter(passaNoFiltro);
     const ativos = todosDaTurma.filter((f) => f.status !== "Inativo").length;
     const prox = proximoPlantao(turma.id);
@@ -152,10 +155,11 @@ function htmlTurma(turma) {
     return `
         <section class="turma" style="--cor:${turma.cor}">
             <header class="turma-topo">
-                <span class="turma-letra" aria-hidden="true">${turma.id}</span>
+                <span class="turma-letra" aria-hidden="true">${turma.letra}</span>
                 <div class="turma-titulo">
                     <h2>${turma.nome}</h2>
                     <p>${ativos} ${ativos === 1 ? "pessoa" : "pessoas"}${prox ? `, próximo plantão ${dataCurta(prox)}` : ""}</p>
+                    ${lideresDaTurma(turma.id)}
                 </div>
             </header>
             <div class="lista-cards" data-turma="${turma.id}">
@@ -164,15 +168,24 @@ function htmlTurma(turma) {
         </section>`;
 }
 
+// na noturna, mostra no topo da coluna quem é o encarregado daquela noite
+function lideresDaTurma(turmaId) {
+    if (encarregadoForaDasTurmas(configs[tipoAtual], tipoAtual)) return "";
+    const nomes = daEscala().filter((f) => f.status !== "Inativo" && lider(f) && turmaDe(f) === turmaId).map((f) => f.nome);
+    return nomes.length
+        ? `<p class="turma-lider-nome"><i class="fa-solid fa-star" aria-hidden="true"></i> Encarregado: <strong>${esc(nomes.join(", "))}</strong></p>`
+        : `<p class="turma-lider-nome vazio"><i class="fa-solid fa-star" aria-hidden="true"></i> Sem encarregado: arraste um para cá</p>`;
+}
+
 function htmlSemTurma() {
-    const todos = daEscala().filter((f) => !turmaDe(f) && !lider(f));
+    const todos = daEscala().filter((f) => !turmaDe(f) && !liderSolto(f));
     const visiveis = todos.filter(passaNoFiltro);
 
     return `
         <section class="faixa faixa--sem">
             <header class="faixa-topo">
-                <h2><i class="fa-regular fa-circle-question" aria-hidden="true"></i> Sem fim de semana definido <span class="contagem">${todos.length}</span></h2>
-                <p>Ficam fora da escala até irem para A ou B.</p>
+                <h2><i class="fa-regular fa-circle-question" aria-hidden="true"></i> ${tipoAtual === "noturna" ? "Sem noite definida" : "Sem fim de semana definido"} <span class="contagem">${todos.length}</span></h2>
+                <p>Ficam fora da escala até irem para ${turmas().map((t) => t.curto.replace("Turma ", "")).join(" ou ")}.</p>
             </header>
             <div class="lista-cards lista-cards--faixa" data-turma="${SEM_TURMA}">
                 ${ordenarPorEquipe(visiveis, equipes).map(htmlCard).join("") || `<p class="lista-vazia">Todos já estão em uma turma</p>`}
@@ -181,6 +194,7 @@ function htmlSemTurma() {
 }
 
 function htmlLideres() {
+    if (!encarregadoForaDasTurmas(configs[tipoAtual], tipoAtual)) return "";
     const lideres = daEscala().filter((f) => lider(f)).sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     const visiveis = lideres.filter(passaNoFiltro);
     return `
@@ -219,7 +233,7 @@ function render() {
     quadro.innerHTML = `
         ${htmlLideres()}
         <div class="turmas">
-            ${TURMAS.map(htmlTurma).join("")}
+            ${turmas().map(htmlTurma).join("")}
         </div>
         ${htmlSemTurma()}
     `;
@@ -288,9 +302,10 @@ async function aoSoltar(evt) {
     try {
         if (f && evt.from !== evt.to && turmaDe(f) !== novaTurma) {
             await updateDoc(doc(db, "funcionarios", f.id), { turma: novaTurma });
+            const t = turmas().find((x) => x.id === novaTurma);
             aviso(novaTurma
-                ? `${f.nome} agora trabalha no fim de semana ${novaTurma}.`
-                : `${f.nome} ficou sem fim de semana definido.`);
+                ? `${f.nome} agora trabalha na ${t.nome.toLowerCase()}.`
+                : `${f.nome} ficou sem ${tipoAtual === "noturna" ? "noite" : "fim de semana"} definido.`);
         }
     } catch (erro) {
         console.error(erro);
@@ -402,9 +417,12 @@ function atualizarCargos() {
 
 function atualizarTextoLider() {
     const tipo = $("funcTurno").value === "Noturno" ? "noturna" : "diurna";
-    $("textoLider").textContent = modoEncarregado(configs[tipo], tipo) === "ciclo"
+    const m = modoEncarregado(configs[tipo], tipo);
+    $("textoLider").textContent = m === "ciclo"
         ? "Fica fora das turmas e reveza com os outros encarregados: cada um cuida de 2 fins de semana seguidos (A e B)."
-        : "Fica fora das turmas e reveza com os outros encarregados: um no sábado, outro no domingo.";
+        : m === "turma"
+            ? "Aparece em destaque e é o encarregado da noite escolhida acima (sábado ou domingo)."
+            : "Fica fora das turmas e reveza com os outros encarregados, um por dia.";
 }
 
 function abrirFuncionario(id) {
@@ -416,7 +434,7 @@ function abrirFuncionario(id) {
     $("funcMatricula").value = f?.matricula || "";
     $("funcFuncao").value = f?.funcao || "";
     $("funcTurno").value = TIPOS[f ? tipoDoFuncionario(f) : tipoAtual].turno;
-    $("funcTurma").value = f ? (turmaDe(f) || "") : "A";
+    preencherTurmas(f ? turmaDe(f) || "" : turmasDe(tipoAtual)[0].id);
     $("funcStatus").value = f?.status || "Ativo";
 
     const selecionada = f ? f.equipeId : (filtro.equipe && filtro.equipe !== "__sem__" ? filtro.equipe : "");
@@ -432,14 +450,33 @@ function abrirFuncionario(id) {
     abrirModal(modalFunc, $("funcNome"));
 }
 
-$("funcTurno").addEventListener("change", atualizarTextoLider);
+$("funcTurno").addEventListener("change", () => {
+    preencherTurmas($("funcTurma").value);
+    atualizarTextoLider();
+    travarTurma();
+});
 $("funcLider").addEventListener("change", () => { liderMarcadoAMao = true; travarTurma(); });
 
 // encarregado não pertence a turma: o revezamento dele é próprio
+function tipoDoModal() {
+    return $("funcTurno").value === "Noturno" ? "noturna" : "diurna";
+}
+
+// opções de turma conforme a escala escolhida no cadastro
+function preencherTurmas(valor) {
+    const tipo = tipoDoModal();
+    const lista = turmasDe(tipo);
+    const atual = lista.some((t) => t.id === valor) ? valor : "";
+    $("funcTurma").innerHTML = lista.map((t) => `<option value="${t.id}" ${t.id === atual ? "selected" : ""}>${t.nome}</option>`).join("") +
+        `<option value="" ${!atual ? "selected" : ""}>Ainda não definido</option>`;
+    $("rotuloTurma").textContent = tipo === "noturna" ? "Trabalha na" : "Trabalha no";
+}
+
 function travarTurma() {
-    const ehLider = $("funcLider").checked;
-    $("funcTurma").disabled = ehLider;
-    $("funcTurma").title = ehLider ? "Encarregados revezam entre si, fora das turmas" : "";
+    const tipo = tipoDoModal();
+    const solto = $("funcLider").checked && encarregadoForaDasTurmas(configs[tipo], tipo);
+    $("funcTurma").disabled = solto;
+    $("funcTurma").title = solto ? "Encarregados revezam entre si, fora das turmas" : "";
 }
 
 // cargo ou equipe "Encarregado" marcam a caixa sozinhos, até a pessoa mexer nela

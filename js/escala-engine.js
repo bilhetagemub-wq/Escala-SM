@@ -97,6 +97,10 @@ export function indiceFimDeSemana(iso, config, equipes) {
     if (!n) return -1;
 
     const cfg = { ...CONFIG_PADRAO, ...config };
+
+    // "pordia": a primeira turma trabalha todo sábado e a segunda todo domingo
+    if (cfg.modo === "pordia") return diaDaSemana(iso) === 0 ? Math.min(1, n - 1) : 0;
+
     const ref = sabadoDoFimDeSemana(cfg.dataReferencia || DATA_REFERENCIA_PADRAO);
     const semanas = Math.round(
         (paraTempo(sabadoDoFimDeSemana(iso)) - paraTempo(ref)) / SEMANA_MS
@@ -242,22 +246,27 @@ export function integrantesDoDia(dia, funcionarios, ajustes = {}, excluir = new 
 // modo "ciclo" (diurna): um encarregado a cada 2 fins de semana seguidos
 //   (o fim de semana A e o B, sábado e domingo). No ciclo seguinte entra
 //   o próximo da lista.
-// modo "dia" (noturna): um encarregado por dia, em sequência
-//   (sáb, dom, sáb, dom...). Com dois encarregados, cada um fica com um dia.
+// modo "dia": um encarregado por dia, em sequência (sáb, dom, sáb, dom...).
+// modo "turma" (noturna): cada encarregado tem a sua turma (a noite de sábado
+//   ou a de domingo) e trabalha nos dias dela.
 //
 // Feriado em dia útil: de segunda a quarta fica com o encarregado do fim de
 // semana anterior (no modo "dia", o de domingo); de quinta e sexta, com o seguinte.
 // ajustes.encarregados = { "AAAA-MM-DD": funcionarioId | "" }  (troca manual; "" = nenhum)
 
+// encarregados = [{ id, turma }] na ordem do revezamento
 export function atribuirEncarregados(dias, { encarregados, config = {}, modo = "ciclo", ajustes = {} }) {
-    const n = encarregados.length;
-    const validos = new Set(encarregados);
+    const ids = encarregados.map((e) => e.id);
+    const n = ids.length;
+    const validos = new Set(ids);
     const trocas = ajustes.encarregados || {};
-    const inicial = Math.max(0, encarregados.indexOf(config.encarregadoInicialId));
+    const inicial = Math.max(0, ids.indexOf(config.encarregadoInicialId));
 
     return dias.map((d) => {
         let original = null;
-        if (n) {
+        if (modo === "turma") {
+            original = encarregados.find((e) => e.turma && e.turma === d.equipeId)?.id || null;
+        } else if (n) {
             // feriado de segunda a quarta emenda com o fim de semana anterior;
             // de quinta e sexta, com o seguinte
             const anterior = !d.fimDeSemana && d.diaSemana <= 3;
@@ -265,7 +274,7 @@ export function atribuirEncarregados(dias, { encarregados, config = {}, modo = "
             const semanas = semanasDesdeReferencia(ancora, config);
             const domingo = (d.fimDeSemana && d.diaSemana === 0) || anterior ? 1 : 0;
             const passo = modo === "dia" ? semanas * 2 + domingo : Math.floor(semanas / 2);
-            original = encarregados[mod(inicial + passo, n)];
+            original = ids[mod(inicial + passo, n)];
         }
 
         let encarregadoId = original;

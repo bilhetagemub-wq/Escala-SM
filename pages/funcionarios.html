@@ -25,8 +25,8 @@
         <div>
             <h1>Funcionários e turmas</h1>
             <p class="page-sub">
-                Arraste cada pessoa para o fim de semana em que ela trabalha.
-                A equipe é a função (Elétrica, Mecânica...) e só organiza a lista.
+                Arraste cada pessoa para quando ela trabalha: fim de semana A ou B na diurna,
+                noite de sábado ou de domingo na noturna. A equipe é a função e só organiza a lista.
             </p>
         </div>
 
@@ -123,12 +123,8 @@
                     </select>
                 </label>
                 <label class="campo">
-                    <span>Trabalha no</span>
-                    <select id="funcTurma">
-                        <option value="A">Fim de semana A</option>
-                        <option value="B">Fim de semana B</option>
-                        <option value="">Ainda não definido</option>
-                    </select>
+                    <span id="rotuloTurma">Trabalha no</span>
+                    <select id="funcTurma"></select>
                 </label>
             </div>
 
@@ -209,7 +205,7 @@
                     <input type="file" id="arquivoPlanilha" accept=".xlsx,.xls,.csv">
                     <i class="fa-solid fa-file-excel" aria-hidden="true"></i>
                     <strong>Arraste a planilha aqui ou clique para escolher</strong>
-                    <span>Arquivos .xlsx, .xls ou .csv com as colunas Nome, Matrícula, Equipe, Cargo, Escala, Fim de semana, Encarregado e Status.</span>
+                    <span>Arquivos .xlsx, .xls ou .csv com as colunas Nome, Matrícula, Equipe, Cargo, Escala, Turma, Encarregado e Status.</span>
                 </label>
 
                 <div class="modelo-aviso">
@@ -232,7 +228,7 @@
                 <div class="previa-tabela">
                     <table>
                         <thead>
-                            <tr><th>Linha</th><th>Nome</th><th>Matrícula</th><th>Escala</th><th>Fim de semana</th><th>Equipe</th><th>Resultado</th></tr>
+                            <tr><th>Linha</th><th>Nome</th><th>Matrícula</th><th>Escala</th><th>Turma</th><th>Equipe</th><th>Resultado</th></tr>
                         </thead>
                         <tbody id="linhasImportacao"></tbody>
                     </table>

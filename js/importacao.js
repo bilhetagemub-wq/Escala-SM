@@ -3,7 +3,8 @@
 // importacao.js — importar e exportar funcionários por planilha
 // ======================================================
 //
-// Colunas: Nome | Matrícula | Equipe | Cargo | Escala | Fim de semana | Encarregado | Status
+// Colunas: Nome | Matrícula | Equipe | Cargo | Escala | Turma | Encarregado | Status
+// Turma: A ou B na diurna; Sábado ou Domingo na noturna.
 //
 // Regras:
 // - Reconhece quem já existe pela matrícula; sem matrícula, pelo nome.
@@ -13,7 +14,7 @@
 
 import { db } from "./firebase.js";
 import {
-    TIPOS, tipoDoTexto, tipoDoFuncionario, turmaDoTexto, turmaDe, normalizar, proximaCor, esc, ehEncarregado
+    TIPOS, tipoDoTexto, tipoDoFuncionario, turmaDoTexto, turmaDe, turmaPorId, normalizar, proximaCor, esc, ehEncarregado
 } from "./dados.js";
 
 import {
@@ -27,7 +28,7 @@ const ALIASES = {
     funcaoComoEquipe: ["funcao"],
     cargo: ["cargo"],
     escala: ["escala", "turno", "tipo", "tipo de escala"],
-    turma: ["fim de semana", "turma", "fds", "grupo", "fim de semana (a/b)"],
+    turma: ["turma", "fim de semana", "fds", "grupo", "noite", "dia", "fim de semana / noite", "fim de semana (a/b)"],
     encarregado: ["encarregado", "lider", "encarregado?"],
     status: ["status", "situacao"]
 };
@@ -119,13 +120,11 @@ function analisar(registros, equipes, funcionarios) {
     const itens = registros.map((r) => {
         const erros = [];
         const tipoInformado = tipoDoTexto(r.escala);
-        const turmaInformada = turmaDoTexto(r.turma);
         const statusN = normalizar(r.status);
         const encN = normalizar(r.encarregado);
 
         if (!r.nome) erros.push("Nome em branco");
         if (r.escala && !tipoInformado) erros.push(`Escala "${r.escala}" inválida: use Diurna ou Noturna`);
-        if (r.turma && !turmaInformada) erros.push(`Fim de semana "${r.turma}" inválido: use A ou B`);
         if (statusN && !["ativo", "inativo"].includes(statusN)) erros.push(`Status "${r.status}" inválido: use Ativo ou Inativo`);
         if (encN && !SIM.includes(encN) && !NAO.includes(encN)) erros.push(`Encarregado "${r.encarregado}" inválido: use Sim ou Não`);
 
@@ -148,6 +147,14 @@ function analisar(registros, equipes, funcionarios) {
 
         const tipo = tipoInformado || (existente ? tipoDoFuncionario(existente) : null);
         if (!tipo && !erros.length) erros.push("Escala em branco: informe Diurna ou Noturna");
+
+        // a turma depende da escala: A/B na diurna, Sábado/Domingo na noturna
+        const turmaInformada = tipo ? turmaDoTexto(r.turma, tipo) : null;
+        if (r.turma && tipo && !turmaInformada) {
+            erros.push(tipo === "noturna"
+                ? `Turma "${r.turma}" inválida na noturna: use Sábado ou Domingo`
+                : `Turma "${r.turma}" inválida na diurna: use A ou B`);
+        }
 
         if (erros.length) return { ...r, erros, acao: "erro" };
         if (existente) tocados.add(existente.id);
@@ -182,7 +189,7 @@ function analisar(registros, equipes, funcionarios) {
             matricula: r.matricula || existente?.matricula || "",
             funcao: cargo,
             turno: TIPOS[tipo].turno,
-            turma: turmaInformada || (existente ? turmaDe(existente) : null),
+            turma: turmaInformada || (existente && tipoDoFuncionario(existente) === tipo ? turmaDe(existente) : null),
             status: statusN === "inativo" ? "Inativo" : statusN === "ativo" ? "Ativo" : (existente?.status || "Ativo"),
             lider
         };
@@ -194,7 +201,7 @@ function analisar(registros, equipes, funcionarios) {
             if ((existente.matricula || "") !== dados.matricula) mudancas.push("matrícula");
             if ((existente.funcao || "") !== dados.funcao) mudancas.push("cargo");
             if (tipoDoFuncionario(existente) !== tipo) mudancas.push("escala");
-            if (turmaDe(existente) !== dados.turma) mudancas.push(dados.turma ? `vai para o fim de semana ${dados.turma}` : "fim de semana");
+            if (turmaDe(existente) !== dados.turma) mudancas.push(dados.turma ? `vai para ${turmaPorId(dados.turma)?.curto}` : "turma");
             if ((existente.status || "Ativo") !== dados.status) mudancas.push("status");
             if (equipeNova || (existente.equipeId || null) !== equipeId) mudancas.push("equipe");
             if (ehEncarregado(existente, equipes) !== lider) mudancas.push(lider ? "vira encarregado" : "deixa de ser encarregado");
@@ -279,14 +286,14 @@ export function exportarPlanilha(equipes, funcionarios) {
     );
 
     const linhas = [
-        ["Nome", "Matrícula", "Equipe", "Cargo", "Escala", "Fim de semana", "Encarregado", "Status"],
+        ["Nome", "Matrícula", "Equipe", "Cargo", "Escala", "Turma", "Encarregado", "Status"],
         ...ordenados.map((f) => [
             f.nome || "",
             f.matricula || "",
             nomeEquipe(f.equipeId),
             f.funcao || "",
             TIPOS[tipoDoFuncionario(f)].curto,
-            turmaDe(f) || "",
+            turmaPorId(turmaDe(f))?.curto.replace("Turma ", "") || "",
             ehEncarregado(f, equipes) ? "Sim" : "Não",
             f.status || "Ativo"
         ])
@@ -370,7 +377,7 @@ export function iniciarImportacao({ obterDados, aviso, abrirModal, fecharModal }
                         <td>${esc(i.nome) || "—"}</td>
                         <td>${esc(i.dados?.matricula ?? i.matricula)}</td>
                         <td>${i.tipo ? TIPOS[i.tipo].curto : esc(i.escala)}</td>
-                        <td>${i.dados ? (i.dados.turma || "—") : esc(i.turma)}${i.dados?.lider ? ` <small title="Encarregado">★</small>` : ""}</td>
+                        <td>${i.dados ? (turmaPorId(i.dados.turma)?.curto.replace("Turma ", "") || "—") : esc(i.turma)}${i.dados?.lider ? ` <small title="Encarregado">★</small>` : ""}</td>
                         <td>${esc(i.equipeNome || (i.acao === "erro" ? i.equipe : "Sem equipe"))}${i.equipeNova ? " <small>(nova)</small>" : ""}</td>
                         <td>${resultado}</td>
                     </tr>`;

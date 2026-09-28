@@ -25,7 +25,7 @@
         <div>
             <h1>Escala de fim de semana</h1>
             <p class="page-sub">
-                Fim de semana A para a turma A, fim de semana B para a turma B.
+                Diurna: fim de semana A e fim de semana B, alternando. Noturna: noite de sábado e noite de domingo.
                 A escala do mês é gerada pelo rodízio; ajuste o que precisar e salve.
             </p>
         </div>
@@ -72,7 +72,7 @@
 
         <p class="dica">
             <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
-            Troque a turma pelos botões A e B e o encarregado pelo seletor. Clique num nome para marcar férias ou afastamento.
+            Troque a turma do dia pelos botões e o encarregado pelo seletor. Clique num nome para marcar férias ou afastamento.
         </p>
 
         <div id="gradeDias" class="grade"></div>
@@ -144,7 +144,14 @@
 
         <div class="duas-colunas">
             <form id="formRotacao" class="painel form-rotacao" novalidate>
-                <h3>Como as turmas se revezam</h3>
+                <h3 id="tituloRotacao">Como as turmas se revezam</h3>
+
+                <p class="texto-apoio hidden" id="avisoNoturna">
+                    Na noturna, a turma do sábado trabalha todo sábado e a do domingo todo domingo.
+                    Quem fica em cada noite você define em Funcionários, arrastando para Sábado ou Domingo.
+                </p>
+
+                <div id="grupoFimDeSemana" class="form-rotacao">
                 <p class="texto-apoio">
                     A turma A trabalha num fim de semana e a turma B no seguinte, sempre alternando.
                     Quem está em cada turma você define em Funcionários.
@@ -181,11 +188,19 @@
                         </span>
                     </label>
                 </fieldset>
+                </div>
 
                 <fieldset class="opcoes">
                     <legend>Encarregados</legend>
                     <label class="opcao">
-                        <input type="radio" name="modoEncarregado" value="ciclo">
+                        <input type="radio" name="modoEncarregado" value="turma" data-tipos="noturna">
+                        <span>
+                            <strong>Cada encarregado tem a sua noite</strong>
+                            <small>Você escolhe quem fica no sábado e quem fica no domingo, arrastando o encarregado em Funcionários. Padrão da escala noturna.</small>
+                        </span>
+                    </label>
+                    <label class="opcao">
+                        <input type="radio" name="modoEncarregado" value="ciclo" data-tipos="diurna">
                         <span>
                             <strong>Um encarregado a cada 2 fins de semana</strong>
                             <small>O mesmo encarregado cuida do fim de semana A e do B, sábado e domingo. Depois entra o próximo. Padrão da escala diurna.</small>
@@ -194,13 +209,14 @@
                     <label class="opcao">
                         <input type="radio" name="modoEncarregado" value="dia">
                         <span>
-                            <strong>Um encarregado por dia</strong>
-                            <small>Sábado e domingo com encarregados diferentes, em sequência. Padrão da escala noturna.</small>
+                            <strong>Um encarregado por dia, revezando</strong>
+                            <small>Sábado e domingo com encarregados diferentes, em sequência, seguindo a ordem da lista.</small>
                         </span>
                     </label>
                 </fieldset>
 
-                <label class="campo">
+                <p class="texto-apoio hidden" id="avisoEncarregadoTurma"></p>
+                <label class="campo" id="campoEncarregadoInicial">
                     <span>Encarregado do fim de semana de partida</span>
                     <select id="encarregadoInicial"></select>
                 </label>
@@ -208,10 +224,7 @@
 
                 <label class="campo">
                     <span>Primeiro feriado da lista fica com</span>
-                    <select id="feriadoEquipeInicial">
-                        <option value="A">Turma A</option>
-                        <option value="B">Turma B</option>
-                    </select>
+                    <select id="feriadoEquipeInicial"></select>
                 </label>
 
                 <fieldset class="opcoes">

@@ -13,7 +13,7 @@ import { montarLayout, aviso } from "./layout.js";
 import {
     ouvirEquipes, ouvirFuncionarios, ouvirFeriados,
     lerConfig, salvarConfig, lerAjustesDoMes, salvarEscalaDoMes,
-    ROTULO_AUSENCIA, TIPOS, TURMAS, turmaPorId, turmaFixaDoFeriado,
+    ROTULO_AUSENCIA, TIPOS, turmasDe, turmaPorId, turmaFixaDoFeriado, encarregadoForaDasTurmas,
     modoEncarregado, pessoasDoDia, ativosDaEscala, turmaDe, ehEncarregado, esc,
     encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
@@ -51,6 +51,7 @@ const hoje = hojeISO();
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const corTurma = (id) => turmaPorId(id)?.cor || "#8b93a1";
 const nomeTurma = (id) => turmaPorId(id)?.curto || "Sem turma";
+const turmas = () => turmasDe(tipoAtual);
 
 function filtrarFeriados() {
     feriados = todosFeriados.map((f) => ({ ...f, equipeFixaId: turmaFixaDoFeriado(f, tipoAtual) }));
@@ -71,7 +72,7 @@ async function carregarConfig() {
     try {
         const c = await lerConfig(tipoAtual);
         if (pedido !== pedidoConfig) return;
-        config = completarConfig(c);
+        config = completarConfig(c, tipoAtual);
 
         // primeiro uso: grava o ponto de partida (este fim de semana, turma A)
         if (config.novo) {
@@ -92,6 +93,8 @@ async function carregarConfig() {
 
 function aoMudarDados() {
     if (!Object.values(pronto).every(Boolean)) return;
+    preencherEncarregadoInicial($("encarregadoInicial").value || config.encarregadoInicialId);
+    atualizarCampoEncarregado();
     renderMes();
     renderFeriados();
     renderPrevia();
@@ -179,7 +182,7 @@ const nomePessoa = (id) => funcionarios.find((f) => f.id === id)?.nome || "";
 
 function comEncarregados(dias, cfg, ajustesDoMes) {
     return atribuirEncarregados(dias, {
-        encarregados: encarregados().map((f) => f.id),
+        encarregados: encarregados().map((f) => ({ id: f.id, turma: turmaDe(f) })),
         config: cfg || {},
         modo: modoEncarregado(cfg, tipoAtual),
         ajustes: ajustesDoMes
@@ -187,7 +190,7 @@ function comEncarregados(dias, cfg, ajustesDoMes) {
 }
 
 function diasDoMesAtual() {
-    const dias = gerarEscalaDoMes(mesAtual, { equipes: TURMAS, feriados, config: config || {}, ajustes });
+    const dias = gerarEscalaDoMes(mesAtual, { equipes: turmas(), feriados, config: config || {}, ajustes });
     return comEncarregados(dias, config, ajustes);
 }
 
@@ -287,7 +290,7 @@ function htmlDia(d) {
 
                 <div class="dia-turma">
                     <div class="turma-botoes" role="group" aria-label="Turma de ${dataCurta(d.data)}">
-                        ${TURMAS.map((t) => `
+                        ${turmas().map((t) => `
                             <button class="turma-bt ${t.id === d.equipeId ? "ativo" : ""}" style="--cor:${t.cor}"
                                     data-troca="${d.data}" data-turma="${t.id}" aria-pressed="${t.id === d.equipeId}">
                                 ${t.curto}
@@ -336,7 +339,8 @@ function renderMes() {
     }
 
     const ativos = ativosDaEscala(funcionarios, tipoAtual);
-    const semTurma = ativos.filter((f) => !turmaDe(f) && !ehEncarregado(f, equipes)).length;
+    const fora = encarregadoForaDasTurmas(config, tipoAtual);
+    const semTurma = ativos.filter((f) => !turmaDe(f) && !(fora && ehEncarregado(f, equipes))).length;
 
     if (!ativos.some((f) => turmaDe(f))) {
         resumo.innerHTML = "";
@@ -351,7 +355,7 @@ function renderMes() {
 
     const dias = diasDoMesAtual();
 
-    resumo.innerHTML = TURMAS.map((t) => {
+    resumo.innerHTML = turmas().map((t) => {
         const nDias = dias.filter((d) => d.equipeId === t.id).length;
         const nPessoas = ativos.filter((f) => turmaDe(f) === t.id && !ehEncarregado(f, equipes)).length;
         return `
@@ -363,7 +367,7 @@ function renderMes() {
     }).join("") + resumoEncarregados(dias) + (semTurma
         ? `<a class="resumo-item resumo-item--alerta" href="/pages/funcionarios.html?tipo=${tipoAtual}">
                <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-               <strong>${semTurma} sem fim de semana</strong>
+               <strong>${semTurma} ${tipoAtual === "noturna" ? "sem noite definida" : "sem fim de semana"}</strong>
                <span>ficam fora da escala</span>
            </a>`
         : "");
@@ -575,9 +579,9 @@ const cacheConfig = {};
 const cacheAjustes = {};
 
 async function escalaDoTipo(tipo, datas) {
-    const cfg = tipo === tipoAtual ? config : (cacheConfig[tipo] ??= completarConfig(await lerConfig(tipo)));
+    const cfg = tipo === tipoAtual ? config : (cacheConfig[tipo] ??= completarConfig(await lerConfig(tipo), tipo));
     const fer = todosFeriados.map((f) => ({ ...f, equipeFixaId: turmaFixaDoFeriado(f, tipo) }));
-    const encs = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => f.id);
+    const encs = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => ({ id: f.id, turma: turmaDe(f) }));
     const resultado = [];
 
     for (const mes of [...new Set(datas.map(mesDe))]) {
@@ -585,7 +589,7 @@ async function escalaDoTipo(tipo, datas) {
             ? ajustes
             : (cacheAjustes[`${mes}-${tipo}`] ??= await lerAjustesDoMes(mes, tipo));
         const dias = atribuirEncarregados(
-            gerarEscalaDoMes(mes, { equipes: TURMAS, feriados: fer, config: cfg || {}, ajustes: aj }),
+            gerarEscalaDoMes(mes, { equipes: turmasDe(tipo), feriados: fer, config: cfg || {}, ajustes: aj }),
             { encarregados: encs, config: cfg || {}, modo: modoEncarregado(cfg, tipo), ajustes: aj }
         );
         dias.filter((d) => datas.includes(d.data)).forEach((d) => resultado.push({ dia: d, ajustes: aj }));
@@ -659,19 +663,20 @@ $("formImprimir").addEventListener("submit", async (e) => {
             let y = 34;
             for (const tipo of tipos) {
                 const linhasDia = await escalaDoTipo(tipo, bloco.datas);
-                const turmas = [...new Set(linhasDia.map((l) => l.dia.equipeId))].map((t) => turmaPorId(t)?.curto).filter(Boolean);
+                const nomesTurma = [...new Set(linhasDia.map((l) => l.dia.equipeId))].map((t) => turmaPorId(t)?.curto).filter(Boolean);
 
                 pdf.setFont("helvetica", "bold");
                 pdf.setFontSize(12);
                 pdf.setTextColor(27, 35, 48);
-                pdf.text(`${TIPOS[tipo].rotulo}${turmas.length ? `: ${turmas.join(" e ")}` : ""}`, 14, y);
+                pdf.text(tipo === "diurna" && nomesTurma.length ? `${TIPOS[tipo].rotulo}: ${nomesTurma.join(" e ")}` : TIPOS[tipo].rotulo, 14, y);
 
                 const corpo = [];
                 linhasDia.forEach(({ dia, ajustes: aj }) => {
                     const { encarregado, grupos } = pessoasDoDia(dia, funcionarios, aj, tipo, equipes, agruparPor);
                     const n = Math.max(1, grupos.length);
                     const turma = turmaPorId(dia.equipeId);
-                    const diaTexto = `${cap(NOMES_DIA[dia.diaSemana])}\n${turma?.curto || ""}${dia.feriado ? `\nFeriado: ${dia.feriado.descricao}` : ""}`;
+                    const linhaTurma = tipo === "diurna" || !dia.fimDeSemana ? `\n${turma?.curto || ""}` : "";
+                    const diaTexto = `${cap(NOMES_DIA[dia.diaSemana])}${linhaTurma}${dia.feriado ? `\nFeriado: ${dia.feriado.descricao}` : ""}`;
                     const fundoDia = dia.feriado ? [253, 236, 236] : [255, 255, 255];
 
                     const inicio = [
@@ -745,14 +750,14 @@ $("formImprimir").addEventListener("submit", async (e) => {
 
 const opcoesTurma = (selecionada, rotuloAuto) =>
     `<option value="">${esc(rotuloAuto)}</option>` +
-    TURMAS.map((t) => `<option value="${t.id}" ${t.id === selecionada ? "selected" : ""}>${t.curto}</option>`).join("");
+    turmas().map((t) => `<option value="${t.id}" ${t.id === selecionada ? "selected" : ""}>${t.curto}</option>`).join("");
 
 function renderFeriados() {
     $("feriadoEquipe").innerHTML = opcoesTurma(null, "Próxima da fila (automático)");
 
     const lista = $("listaFeriados");
     const mostrarPassados = $("mostrarPassados").checked;
-    const distribuidos = distribuirFeriados(feriados, TURMAS, config || {})
+    const distribuidos = distribuirFeriados(feriados, turmas(), config || {})
         .filter((f) => mostrarPassados || f.data >= hoje);
 
     if (!distribuidos.length) {
@@ -882,7 +887,6 @@ $("listaFeriados").addEventListener("click", async (e) => {
 // ======================================================
 
 const formRotacao = $("formRotacao");
-const turmaValida = (v) => (v === "A" || v === "B" ? v : "A");
 
 function marcar(nome, valor) {
     const r = formRotacao.querySelector(`input[name="${nome}"][value="${valor}"]`) ||
@@ -892,27 +896,54 @@ function marcar(nome, valor) {
 
 function preencherFormRotacao() {
     if (!config) return;
+
+    // noturna: sábado e domingo fixos; os campos de fim de semana A/B não se aplicam
+    const noturna = tipoAtual === "noturna";
+    $("grupoFimDeSemana").classList.toggle("hidden", noturna);
+    $("avisoNoturna").classList.toggle("hidden", !noturna);
+    $("tituloRotacao").textContent = noturna ? "Como a noite se organiza" : "Como as turmas se revezam";
+    $("feriadoEquipeInicial").innerHTML = turmas().map((t) => `<option value="${t.id}">${t.curto}</option>`).join("");
+    formRotacao.querySelectorAll('input[name="modoEncarregado"]').forEach((r) => {
+        r.closest(".opcao").classList.toggle("hidden", !(r.dataset.tipos || "diurna noturna").includes(tipoAtual));
+    });
     marcar("modo", config.modo);
     marcar("feriadoFds", config.feriadoNoFimDeSemana);
     marcar("modoEncarregado", modoEncarregado(config, tipoAtual));
     preencherEncarregadoInicial(config.encarregadoInicialId);
     $("dataReferencia").value = config.dataReferencia;
-    $("equipeInicial").value = turmaValida(config.equipeInicialId);
-    $("feriadoEquipeInicial").value = turmaValida(config.feriadoEquipeInicialId);
+    $("equipeInicial").value = config.equipeInicialId;
+    $("feriadoEquipeInicial").value = config.feriadoEquipeInicialId;
+    atualizarCampoEncarregado();
 }
 
 function lerFormRotacao() {
     const valor = (nome, padrao) => formRotacao.querySelector(`input[name="${nome}"]:checked`)?.value || padrao;
     return {
         ...config,
-        modo: valor("modo", "fimdesemana"),
+        modo: tipoAtual === "noturna" ? "pordia" : valor("modo", "fimdesemana"),
         dataReferencia: sabadoDoFimDeSemana($("dataReferencia").value || config.dataReferencia),
-        equipeInicialId: $("equipeInicial").value,
+        equipeInicialId: tipoAtual === "noturna" ? config.equipeInicialId : $("equipeInicial").value,
         feriadoEquipeInicialId: $("feriadoEquipeInicial").value,
+        versao: 2,
         feriadoNoFimDeSemana: valor("feriadoFds", "feriado"),
         encarregadoModo: valor("modoEncarregado", modoEncarregado(config, tipoAtual)),
         encarregadoInicialId: $("encarregadoInicial").value || config.encarregadoInicialId || null
     };
+}
+
+function atualizarCampoEncarregado() {
+    const porTurma = formRotacao.querySelector('input[name="modoEncarregado"]:checked')?.value === "turma";
+    $("campoEncarregadoInicial").classList.toggle("hidden", porTurma);
+    $("ordemEncarregados").classList.toggle("hidden", porTurma);
+    $("avisoEncarregadoTurma").classList.toggle("hidden", !porTurma);
+    if (porTurma) {
+        const porNoite = turmas().map((t) => {
+            const nomes = encarregados().filter((f) => turmaDe(f) === t.id).map((f) => f.nome);
+            return `${t.curto}: ${nomes.join(", ") || "nenhum"}`;
+        });
+        $("avisoEncarregadoTurma").innerHTML =
+            `${esc(porNoite.join(". "))}. <a class="link" href="/pages/funcionarios.html?tipo=${tipoAtual}">Mudar em Funcionários</a>`;
+    }
 }
 
 function preencherEncarregadoInicial(selecionado) {
@@ -934,7 +965,7 @@ function renderPrevia() {
     const rascunho = lerFormRotacao();
     const dias = [0, 1, 2, 3]
         .flatMap((n) => comEncarregados(
-            gerarEscalaDoMes(somarMeses(mesDe(hoje), n), { equipes: TURMAS, feriados, config: rascunho }), rascunho, {}
+            gerarEscalaDoMes(somarMeses(mesDe(hoje), n), { equipes: turmas(), feriados, config: rascunho }), rascunho, {}
         ))
         .filter((d) => d.data >= hoje);
 
@@ -960,7 +991,7 @@ function renderPrevia() {
                     ${bloco.map((d) => `
                         <span class="pilula ${d.feriado ? "pilula--feriado" : ""}" style="--cor:${corTurma(d.equipeId)}"
                               title="${d.feriado ? esc(d.feriado.descricao) : ""}">
-                            <i aria-hidden="true"></i>${cap(NOMES_DIA_CURTO[d.diaSemana])} ${nomeTurma(d.equipeId)}${d.feriado ? " (feriado)" : ""}
+                            <i aria-hidden="true"></i>${tipoAtual === "noturna" && d.fimDeSemana ? nomeTurma(d.equipeId) : `${cap(NOMES_DIA_CURTO[d.diaSemana])} ${nomeTurma(d.equipeId)}`}${d.feriado ? " (feriado)" : ""}
                         </span>`).join("")}
                     ${unico
                         ? `<span class="pilula pilula--lider"><i class="fa-solid fa-star" aria-hidden="true"></i>${esc(nomePessoa(bloco[0].encarregadoId))}</span>`
@@ -970,6 +1001,9 @@ function renderPrevia() {
     }).join("");
 }
 
+formRotacao.addEventListener("change", (e) => {
+    if (e.target.name === "modoEncarregado") atualizarCampoEncarregado();
+});
 formRotacao.addEventListener("input", renderPrevia);
 formRotacao.addEventListener("change", renderPrevia);
 

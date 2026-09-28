@@ -6,7 +6,7 @@
 import { montarLayout } from "./layout.js";
 import {
     lerColecao, lerConfig, salvarConfig, lerAjustesDoMes, ordenarEquipes,
-    ROTULO_AUSENCIA, TIPOS, TURMAS, turmaPorId, turmaDe, turmaFixaDoFeriado,
+    ROTULO_AUSENCIA, TIPOS, turmasDe, turmaPorId, turmaDe, turmaFixaDoFeriado, encarregadoForaDasTurmas,
     modoEncarregado, pessoasDoDia, ativosDaEscala, ehEncarregado, esc,
     encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig
 } from "./dados.js";
@@ -27,20 +27,20 @@ const hoje = hojeISO();
 // Próximo plantão de uma escala: fim de semana atual (ou o próximo),
 // com o feriado mais próximo na frente se ele vier antes
 async function plantaoDaEscala(tipo, equipes, funcionarios, todosFeriados) {
-    let config = completarConfig(await lerConfig(tipo));
+    let config = completarConfig(await lerConfig(tipo), tipo);
     if (config.novo) {
         config = { ...config, existe: true, novo: false };
         salvarConfig(tipo, config).catch((erro) => console.error(erro));
     }
 
     const modo = modoEncarregado(config, tipo);
-    const lideres = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => f.id);
+    const lideres = encarregadosDaEscala(funcionarios, tipo, equipes).map((f) => ({ id: f.id, turma: turmaDe(f) }));
     const feriados = todosFeriados.map((f) => ({ ...f, equipeFixaId: turmaFixaDoFeriado(f, tipo) }));
     const temTurmas = ativosDaEscala(funcionarios, tipo).some((f) => turmaDe(f));
 
     const sabado = sabadoDoFimDeSemana(hoje);
     const datas = [sabado, somarDias(sabado, 1)].filter((d) => d >= hoje);
-    const distribuidos = distribuirFeriados(feriados, TURMAS, config);
+    const distribuidos = distribuirFeriados(feriados, turmasDe(tipo), config);
     const feriadoAntes = distribuidos.find((f) => f.data >= hoje && f.data < datas[0]);
     if (feriadoAntes) datas.unshift(feriadoAntes.data);
 
@@ -50,7 +50,7 @@ async function plantaoDaEscala(tipo, equipes, funcionarios, todosFeriados) {
     );
     const escalaPorMes = Object.fromEntries(meses.map((m) => [
         m, atribuirEncarregados(
-            gerarEscalaDoMes(m, { equipes: TURMAS, feriados, config, ajustes: ajustesPorMes[m] }),
+            gerarEscalaDoMes(m, { equipes: turmasDe(tipo), feriados, config, ajustes: ajustesPorMes[m] }),
             { encarregados: lideres, config, modo, ajustes: ajustesPorMes[m] }
         )
     ]));
@@ -137,11 +137,12 @@ function renderTurmas(funcionarios, equipes, configs) {
         const ativos = ativosDaEscala(funcionarios, tipo);
         if (!ativos.length) return "";
         const lideres = ativos.filter((f) => ehEncarregado(f, equipes));
+        const fora = encarregadoForaDasTurmas(configs[tipo], tipo);
         const conta = (id) => ativos.filter((f) => turmaDe(f) === id && !ehEncarregado(f, equipes)).length;
-        const sem = ativos.filter((f) => !turmaDe(f) && !ehEncarregado(f, equipes)).length;
+        const sem = ativos.filter((f) => !turmaDe(f) && !(fora && ehEncarregado(f, equipes))).length;
 
         return `<li class="grupo">${TIPOS[tipo].rotulo}</li>` +
-            TURMAS.map((t) => `
+            turmasDe(tipo).map((t) => `
                 <li style="--cor:${t.cor}">
                     <i class="vela" aria-hidden="true"></i>
                     <span class="principal">${t.nome}</span>
@@ -149,12 +150,12 @@ function renderTurmas(funcionarios, equipes, configs) {
                 </li>`).join("") +
             (lideres.length ? `
                 <li>
-                    <span class="principal">Encarregados<small>${modoEncarregado(configs[tipo], tipo) === "ciclo" ? "Um a cada 2 fins de semana" : "Um por dia, sábado e domingo diferentes"}</small></span>
+                    <span class="principal">Encarregados<small>${{ ciclo: "Um a cada 2 fins de semana", turma: "Cada um com a sua noite", dia: "Um por dia, revezando" }[modoEncarregado(configs[tipo], tipo)]}</small></span>
                     <span class="lado">${lideres.length}</span>
                 </li>` : "") +
             (sem ? `
                 <li>
-                    <span class="principal">Sem fim de semana<small>Ficam fora da escala até irem para A ou B</small></span>
+                    <span class="principal">${tipo === "noturna" ? "Sem noite definida" : "Sem fim de semana"}<small>Ficam fora da escala até terem uma turma</small></span>
                     <span class="lado">${sem}</span>
                 </li>` : "");
     }).join("") || `<li><span class="texto-apoio">Nenhum funcionário cadastrado.</span></li>`;

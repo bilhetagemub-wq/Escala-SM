@@ -165,6 +165,19 @@
 .turma-lider.vazio{ background:none; border-style:dashed; border-color:#c6cdd8; color:var(--tinta-3); }
 .turma-lider.vazio i{ color:var(--tinta-3); }
 
+.turma-lider-nome{
+    margin-top:4px;
+    font-size:13px;
+    color:#8a5a00;
+    display:flex;
+    gap:6px;
+    align-items:center;
+}
+
+.turma-lider-nome i{ color:#E39A12; font-size:11px; }
+.turma-lider-nome.vazio{ color:var(--tinta-3); }
+.turma-lider-nome.vazio i{ color:var(--tinta-3); }
+
 /* cartões em grade: quantos couberem por linha */
 .lista-cards{
     display:grid;

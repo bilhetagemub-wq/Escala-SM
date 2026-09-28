@@ -75,25 +75,46 @@ export const tipoDoFuncionario = (f) => tipoDoTexto(f?.turno) || "diurna";
 // no fim de semana B, todos da turma B. As equipes são só a função
 // (Elétrica, Mecânica...) e servem para organizar a lista.
 
-export const TURMAS = [
-    { id: "A", nome: "Fim de semana A", curto: "Turma A", cor: "#0A9447" },
-    { id: "B", nome: "Fim de semana B", curto: "Turma B", cor: "#3B3F96" }
-];
+// Diurna: fim de semana A e B, alternando.
+// Noturna: noite de sábado e noite de domingo, todo fim de semana.
+export const TURMAS_POR_TIPO = {
+    diurna: [
+        { id: "A", nome: "Fim de semana A", curto: "Turma A", letra: "A", cor: "#0A9447" },
+        { id: "B", nome: "Fim de semana B", curto: "Turma B", letra: "B", cor: "#3B3F96" }
+    ],
+    noturna: [
+        { id: "S", nome: "Noite de sábado", curto: "Sábado", letra: "S", cor: "#3B3F96" },
+        { id: "D", nome: "Noite de domingo", curto: "Domingo", letra: "D", cor: "#8A4FBF" }
+    ]
+};
 
-export const turmaPorId = (id) => TURMAS.find((t) => t.id === id) || null;
-export const turmaDe = (f) => (f?.turma === "A" || f?.turma === "B" ? f.turma : null);
+export const TURMAS = TURMAS_POR_TIPO.diurna;
+export const turmasDe = (tipo) => TURMAS_POR_TIPO[tipo] || TURMAS;
+const TODAS_TURMAS = [...TURMAS_POR_TIPO.diurna, ...TURMAS_POR_TIPO.noturna];
+export const turmaPorId = (id) => TODAS_TURMAS.find((t) => t.id === id) || null;
 
-export function turmaDoTexto(texto) {
-    const t = normalizar(texto).replace(/^(fim de semana|fds|turma|grupo)\s*/, "");
+// Turma do funcionário, só se for válida para a escala dele
+export function turmaDe(f) {
+    const tipo = tipoDoFuncionario(f);
+    return turmasDe(tipo).some((t) => t.id === f?.turma) ? f.turma : null;
+}
+
+export function turmaDoTexto(texto, tipo = "diurna") {
+    const t = normalizar(texto).replace(/^(fim de semana|fds|turma|grupo|noite de|noite)\s*/, "");
+    if (tipo === "noturna") {
+        if (["s", "sab", "sabado"].includes(t)) return "S";
+        if (["d", "dom", "domingo"].includes(t)) return "D";
+        return null;
+    }
     if (["a", "1"].includes(t)) return "A";
     if (["b", "2"].includes(t)) return "B";
     return null;
 }
 
-// Turma fixa de um feriado na escala (valores antigos que não sejam A/B são ignorados)
+// Turma fixa de um feriado na escala (valores que não valem para a escala são ignorados)
 export function turmaFixaDoFeriado(feriado, tipo) {
     const v = feriado.equipeFixa?.[tipo];
-    return v === "A" || v === "B" ? v : null;
+    return turmasDe(tipo).some((t) => t.id === v) ? v : null;
 }
 
 // ------------------------------------------------------
@@ -110,19 +131,24 @@ export function ehEncarregado(f, equipes = []) {
 }
 
 // "ciclo": um encarregado a cada 2 fins de semana (A e B), padrão da diurna
-// "dia":   um encarregado por dia, sábado e domingo diferentes, padrão da noturna
-export const MODO_ENCARREGADO_PADRAO = { diurna: "ciclo", noturna: "dia" };
+// "turma": cada encarregado tem a sua noite (sábado ou domingo), padrão da noturna
+// "dia":   um encarregado por dia, revezando em sequência
+export const MODO_ENCARREGADO_PADRAO = { diurna: "ciclo", noturna: "turma" };
 
 export function modoEncarregado(config, tipo) {
     const m = config?.encarregadoModo;
-    if (m === "ciclo" || m === "dia") return m;
+    if (m === "ciclo" || m === "dia" || m === "turma") return m;
     return MODO_ENCARREGADO_PADRAO[tipo];
 }
 
 export const TEXTO_MODO_ENCARREGADO = {
     ciclo: "Um encarregado a cada 2 fins de semana (cobre A e B, sábado e domingo)",
-    dia: "Um encarregado por dia: sábado e domingo com encarregados diferentes"
+    turma: "Cada encarregado tem a sua noite: arraste para Sábado ou Domingo",
+    dia: "Um encarregado por dia, revezando em sequência"
 };
+
+// encarregado "solto" = fica fora das turmas (revezamento próprio)
+export const encarregadoForaDasTurmas = (config, tipo) => modoEncarregado(config, tipo) !== "turma";
 
 // Funcionários ativos de uma escala
 export const ativosDaEscala = (funcionarios, tipo) =>
@@ -254,17 +280,28 @@ export async function lerConfig(tipo = "diurna") {
 
 // Escala ainda sem rodízio salvo: parte deste fim de semana com a turma A.
 // Todas as telas usam esta mesma regra, para mostrarem sempre a mesma turma.
-export function completarConfig(config) {
-    if (config?.existe) return config;
-    return {
-        ...CONFIG_PADRAO,
-        ...config,
-        dataReferencia: sabadoDoFimDeSemana(hojeISO()),
-        equipeInicialId: "A",
-        feriadoEquipeInicialId: "A",
-        existe: false,
-        novo: true
-    };
+export function completarConfig(config, tipo = "diurna") {
+    const primeira = turmasDe(tipo)[0].id;
+    const valida = (v) => (turmasDe(tipo).some((t) => t.id === v) ? v : primeira);
+    const base = config?.existe
+        ? { ...config }
+        : {
+            ...CONFIG_PADRAO,
+            ...config,
+            dataReferencia: sabadoDoFimDeSemana(hojeISO()),
+            existe: false,
+            novo: true
+        };
+
+    // noturna gravada antes desta versão ("um por dia, revezando"): passa a
+    // "cada encarregado com a sua noite", que é o jeito da noite trabalhar
+    if (tipo === "noturna" && base.encarregadoModo === "dia" && !base.versao) base.encarregadoModo = "turma";
+
+    base.equipeInicialId = valida(base.equipeInicialId);
+    base.feriadoEquipeInicialId = valida(base.feriadoEquipeInicialId);
+    if (tipo === "noturna") base.modo = "pordia";        // noite: sábado e domingo fixos
+    else if (base.modo === "pordia") base.modo = "fimdesemana";
+    return base;
 }
 
 export async function salvarConfig(tipo, config) {
