@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escala | Escala São Miguel</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/escalas.css">
+</head>
+
+<body class="app">
+
+<aside id="sidebar" class="app-sidebar"></aside>
+
+<main class="app-main">
+
+    <header class="page-head">
+        <div>
+            <h1>Escala de fim de semana</h1>
+            <p class="page-sub">
+                Plantão das equipes de manutenção aos sábados, domingos e feriados.
+                A escala do mês é gerada pelo rodízio; ajuste o que precisar e salve.
+            </p>
+        </div>
+        <div class="page-actions">
+            <button id="btnPDF" class="bt bt-contorno">
+                <i class="fa-solid fa-file-pdf" aria-hidden="true"></i> Exportar PDF
+            </button>
+            <button id="btnSalvar" class="bt bt-principal">
+                <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salvar escala
+            </button>
+        </div>
+    </header>
+
+    <nav class="abas" role="tablist" aria-label="Seções da escala">
+        <button class="aba-bt ativo" role="tab" aria-selected="true" data-aba="mes">Escala do mês</button>
+        <button class="aba-bt" role="tab" aria-selected="false" data-aba="feriados">Feriados</button>
+        <button class="aba-bt" role="tab" aria-selected="false" data-aba="rotacao">Rotação</button>
+    </nav>
+
+    <!-- ================= ESCALA DO MÊS ================= -->
+    <section id="aba-mes" class="aba" role="tabpanel">
+
+        <div class="mes-barra">
+            <div class="mes-nav">
+                <button class="bt-icone" id="mesAnterior" aria-label="Mês anterior"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2 id="mesTitulo">—</h2>
+                <button class="bt-icone" id="mesProximo" aria-label="Próximo mês"><i class="fa-solid fa-chevron-right"></i></button>
+                <input type="month" id="mes" class="entrada mes-input" aria-label="Escolher mês">
+                <button class="bt bt-texto" id="mesHoje">Mês atual</button>
+            </div>
+            <span id="statusEscala" class="status"></span>
+        </div>
+
+        <div id="resumoEquipes" class="resumo"></div>
+
+        <p class="dica">
+            <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
+            Troque a equipe de um dia pelo seletor. Clique num nome para marcar férias ou afastamento.
+        </p>
+
+        <div id="gradeDias" class="grade"></div>
+    </section>
+
+    <!-- ================= FERIADOS ================= -->
+    <section id="aba-feriados" class="aba hidden" role="tabpanel">
+
+        <div class="duas-colunas">
+            <div class="painel">
+                <h3>Adicionar feriado</h3>
+                <form id="formFeriado" class="form-feriado" novalidate>
+                    <label class="campo">
+                        <span>Data</span>
+                        <input type="date" id="feriadoData" required>
+                    </label>
+                    <label class="campo">
+                        <span>Descrição</span>
+                        <input type="text" id="feriadoDescricao" placeholder="Ex.: Aniversário da cidade" required>
+                    </label>
+                    <label class="campo">
+                        <span>Equipe</span>
+                        <select id="feriadoEquipe"></select>
+                    </label>
+                    <button type="submit" class="bt bt-principal">
+                        <i class="fa-solid fa-plus" aria-hidden="true"></i> Adicionar feriado
+                    </button>
+                </form>
+
+                <hr class="divisor">
+
+                <h3>Feriados nacionais</h3>
+                <p class="texto-apoio">Importa os feriados nacionais do ano. Feriados estaduais e municipais você adiciona acima.</p>
+                <div class="importar">
+                    <label class="campo">
+                        <span>Ano</span>
+                        <input type="number" id="anoImportar" min="2020" max="2100">
+                    </label>
+                    <label class="alternar">
+                        <input type="checkbox" id="incluirFacultativos">
+                        <span>Incluir Carnaval e Corpus Christi</span>
+                    </label>
+                    <button type="button" class="bt bt-contorno" id="btnImportar">
+                        <i class="fa-solid fa-download" aria-hidden="true"></i> Importar feriados
+                    </button>
+                </div>
+            </div>
+
+            <div class="painel">
+                <div class="painel-topo">
+                    <h3>Rodízio de feriados</h3>
+                    <label class="alternar">
+                        <input type="checkbox" id="mostrarPassados">
+                        <span>Mostrar passados</span>
+                    </label>
+                </div>
+                <p class="texto-apoio">
+                    Cada feriado fica com a próxima equipe da fila, independente do fim de semana.
+                    Se você fixar uma equipe num feriado, a fila continua a partir dela.
+                </p>
+                <div id="listaFeriados" class="lista-feriados"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= ROTAÇÃO ================= -->
+    <section id="aba-rotacao" class="aba hidden" role="tabpanel">
+
+        <div class="duas-colunas">
+            <form id="formRotacao" class="painel form-rotacao" novalidate>
+                <h3>Como as equipes se revezam</h3>
+
+                <fieldset class="opcoes">
+                    <legend>Fim de semana</legend>
+                    <label class="opcao">
+                        <input type="radio" name="modo" value="fimdesemana">
+                        <span>
+                            <strong>Mesma equipe no sábado e no domingo</strong>
+                            <small>A cada fim de semana entra a próxima equipe.</small>
+                        </span>
+                    </label>
+                    <label class="opcao">
+                        <input type="radio" name="modo" value="alternado">
+                        <span>
+                            <strong>Uma equipe no sábado, a seguinte no domingo</strong>
+                            <small>Os dias mudam aos poucos: quem fez domingo vai para o sábado no próximo ciclo.</small>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <div class="modal-linha">
+                    <label class="campo">
+                        <span>Fim de semana de partida</span>
+                        <input type="date" id="dataReferencia">
+                    </label>
+                    <label class="campo">
+                        <span>Equipe desse fim de semana</span>
+                        <select id="equipeInicial"></select>
+                    </label>
+                </div>
+
+                <label class="campo">
+                    <span>Primeiro feriado da lista fica com</span>
+                    <select id="feriadoEquipeInicial"></select>
+                </label>
+
+                <fieldset class="opcoes">
+                    <legend>Feriado que cai no sábado ou domingo</legend>
+                    <label class="opcao">
+                        <input type="radio" name="feriadoFds" value="feriado">
+                        <span>
+                            <strong>Fica com a equipe do rodízio de feriados</strong>
+                            <small>A equipe do fim de semana folga nesse dia.</small>
+                        </span>
+                    </label>
+                    <label class="opcao">
+                        <input type="radio" name="feriadoFds" value="fimdesemana">
+                        <span>
+                            <strong>Fica com a equipe do fim de semana</strong>
+                            <small>O feriado não conta na fila de feriados.</small>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <div class="ordem-rodizio">
+                    <span class="rotulo">Ordem do rodízio</span>
+                    <div id="ordemEquipes" class="ordem-lista"></div>
+                    <a href="/pages/funcionarios.html" class="link">Mudar a ordem arrastando as colunas em Equipes</a>
+                </div>
+
+                <button type="submit" class="bt bt-principal">
+                    <i class="fa-solid fa-check" aria-hidden="true"></i> Salvar rotação
+                </button>
+            </form>
+
+            <div class="painel">
+                <h3>Próximos plantões</h3>
+                <p class="texto-apoio">Prévia com as opções acima, antes de salvar.</p>
+                <ol id="previa" class="previa"></ol>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script type="module" src="../js/escalas.js"></script>
+
+</body>
+</html>

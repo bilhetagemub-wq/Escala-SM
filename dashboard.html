@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escala São Miguel</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body class="app">
+
+<aside id="sidebar" class="app-sidebar"></aside>
+
+<main class="app-main">
+
+    <header class="page-head">
+        <div>
+            <h1 id="saudacao">Bom dia</h1>
+            <p class="page-sub">Quem está de plantão e o que vem pela frente.</p>
+        </div>
+        <div class="page-actions">
+            <a href="/pages/escalas.html" class="bt bt-principal">
+                <i class="fa-solid fa-calendar-week" aria-hidden="true"></i> Abrir escala do mês
+            </a>
+        </div>
+    </header>
+
+    <section id="plantao" class="plantao">
+        <p class="texto-apoio">Carregando plantão…</p>
+    </section>
+
+    <div class="painel-grade">
+        <section class="bloco-info">
+            <h2>Próximos feriados</h2>
+            <ul id="proximosFeriados" class="lista-simples"></ul>
+            <a href="/pages/escalas.html" class="link">Gerenciar feriados</a>
+        </section>
+
+        <section class="bloco-info">
+            <h2>Equipes</h2>
+            <ul id="listaEquipes" class="lista-simples"></ul>
+            <a href="/pages/funcionarios.html" class="link">Organizar equipes</a>
+        </section>
+    </div>
+
+</main>
+
+<script type="module" src="js/dashboard.js"></script>
+
+</body>
+</html>

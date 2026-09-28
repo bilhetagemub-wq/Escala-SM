@@ -1,0 +1,498 @@
+/* =====================================================
+   Escala São Miguel
+   escalas.css — escala mensal, feriados e rotação
+===================================================== */
+
+/* ---------- abas ---------- */
+
+.abas{
+    display:flex;
+    gap:4px;
+    border-bottom:1px solid var(--linha);
+    margin-bottom:22px;
+    overflow-x:auto;
+}
+
+.aba-bt{
+    background:none;
+    padding:10px 16px;
+    font:600 15px var(--fonte);
+    color:var(--tinta-2);
+    border-bottom:3px solid transparent;
+    margin-bottom:-1px;
+    white-space:nowrap;
+}
+
+.aba-bt:hover{ color:var(--tinta); }
+
+.aba-bt.ativo{
+    color:var(--tinta);
+    border-bottom-color:var(--sm-verde);
+}
+
+/* ---------- barra do mês ---------- */
+
+.mes-barra{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+}
+
+.mes-nav{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+
+.mes-nav h2{
+    font-size:28px;
+    font-weight:700;
+    min-width:230px;
+    text-align:center;
+}
+
+.mes-input{ width:auto; padding:7px 10px; }
+
+.status{
+    font-size:14px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:999px;
+    background:var(--superficie);
+    color:var(--tinta-2);
+    border:1px solid var(--linha);
+}
+
+.status--salvo{ color:var(--sm-verde-escuro); border-color:#b9e2c9; background:#effaf3; }
+.status--pendente{ color:#8a5a00; border-color:#f1d9a3; background:#fff8e7; }
+
+/* ---------- resumo por equipe ---------- */
+
+.resumo{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+}
+
+.resumo-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--superficie);
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    padding:8px 14px 8px 10px;
+}
+
+.resumo-item .vela{
+    width:14px;
+    height:22px;
+    background:var(--cor);
+    clip-path:var(--vela);
+}
+
+.resumo-item strong{ font-weight:600; }
+
+.resumo-item span{ color:var(--tinta-2); font-size:14px; }
+
+.dica{
+    font-size:14px;
+    color:var(--tinta-2);
+    margin-bottom:18px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+}
+
+/* ---------- grade de dias ---------- */
+
+.grade{ display:flex; flex-direction:column; gap:20px; }
+
+.bloco-titulo{
+    font-family:var(--fonte-titulo);
+    font-size:15px;
+    font-weight:600;
+    color:var(--tinta-2);
+    margin-bottom:8px;
+    display:flex;
+    gap:10px;
+    align-items:baseline;
+}
+
+.bloco-dias{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:12px;
+}
+
+/* cartão do dia: a vela da equipe é o elemento de destaque */
+.dia{
+    --cor:var(--tinta-3);
+    position:relative;
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    box-shadow:var(--sombra-card);
+    display:grid;
+    grid-template-columns:58px 1fr;
+    overflow:hidden;
+    min-height:150px;
+}
+
+.dia.hoje{ box-shadow:0 0 0 2px var(--tinta), var(--sombra-card); }
+
+.dia-vela{
+    background:var(--cor);
+    clip-path:polygon(0 0, 100% 0, 58% 100%, 0 100%);
+    color:#fff;
+    padding:12px 0 0 10px;
+    display:flex;
+    flex-direction:column;
+    font-family:var(--fonte-titulo);
+    line-height:1;
+}
+
+.dia-vela strong{ font-size:28px; font-weight:700; }
+.dia-vela span{ font-size:13px; font-weight:600; margin-top:4px; }
+
+.dia-corpo{
+    padding:12px 14px 14px 6px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-width:0;
+}
+
+.dia-topo{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:8px;
+}
+
+.dia-nome{
+    font-weight:600;
+    color:var(--tinta-2);
+    font-size:14px;
+}
+
+.tag{
+    font-size:12px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:var(--raio-s);
+    white-space:nowrap;
+}
+
+.tag-feriado{ background:#fdecec; color:#b4232a; }
+.tag-alterado{ background:#fff4db; color:#8a5a00; }
+
+.feriado-nome{
+    font-size:14px;
+    font-weight:600;
+    color:#b4232a;
+    margin-top:-6px;
+}
+
+.dia-equipe{
+    display:flex;
+    gap:6px;
+    align-items:center;
+}
+
+.dia-equipe select{
+    flex:1;
+    min-width:0;
+    font:700 17px var(--fonte-titulo);
+    padding:6px 8px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-s);
+    background:var(--superficie);
+    color:var(--tinta);
+}
+
+.voltar-auto{
+    background:none;
+    color:var(--tinta-3);
+    width:32px;
+    height:32px;
+    border-radius:var(--raio-s);
+}
+
+.voltar-auto:hover{ color:var(--tinta); background:var(--papel); }
+
+.membros{
+    list-style:none;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.membro{
+    font:500 14px var(--fonte);
+    background:var(--papel);
+    color:var(--tinta);
+    border:1px solid transparent;
+    border-radius:999px;
+    padding:4px 11px;
+    display:inline-flex;
+    gap:6px;
+    align-items:center;
+}
+
+.membro:hover{ border-color:var(--tinta-3); }
+
+.membro.ausente{
+    background:none;
+    border:1px dashed var(--tinta-3);
+    color:var(--tinta-3);
+}
+
+.membro.ausente .nome{ text-decoration:line-through; }
+
+.membro small{
+    font-size:11px;
+    font-weight:700;
+    color:#b4232a;
+    text-decoration:none;
+}
+
+.sem-membros{
+    font-size:14px;
+    color:#b4232a;
+    font-weight:600;
+}
+
+/* ---------- painéis ---------- */
+
+.duas-colunas{
+    display:grid;
+    grid-template-columns:minmax(300px, 420px) 1fr;
+    gap:20px;
+    align-items:start;
+}
+
+.painel{
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    box-shadow:var(--sombra-card);
+    padding:22px;
+}
+
+.painel h3{ font-size:20px; margin-bottom:12px; }
+
+.painel-topo{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+
+.texto-apoio{
+    font-size:14px;
+    color:var(--tinta-2);
+    margin:-4px 0 14px;
+    max-width:62ch;
+}
+
+.form-feriado,
+.importar{ display:grid; gap:12px; }
+
+.divisor{ border:none; border-top:1px solid var(--linha); margin:22px 0; }
+
+.alternar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:14px;
+    color:var(--tinta-2);
+    cursor:pointer;
+}
+
+.alternar input{ width:16px; height:16px; accent-color:var(--sm-verde); }
+
+/* ---------- lista de feriados ---------- */
+
+.lista-feriados{ display:flex; flex-direction:column; }
+
+.ano-titulo{
+    font-family:var(--fonte-titulo);
+    font-size:18px;
+    font-weight:700;
+    margin:14px 0 6px;
+}
+
+.ano-titulo:first-child{ margin-top:0; }
+
+.feriado{
+    display:grid;
+    grid-template-columns:70px 1fr 200px 36px;
+    align-items:center;
+    gap:12px;
+    padding:10px 0;
+    border-top:1px solid var(--linha);
+}
+
+.feriado.passado{ opacity:.5; }
+
+.feriado-data strong{ display:block; font-weight:700; }
+.feriado-data span{ font-size:13px; color:var(--tinta-2); }
+
+.feriado-desc{ min-width:0; }
+
+.feriado-desc small{
+    display:block;
+    font-size:12px;
+    color:var(--tinta-2);
+}
+
+.feriado-equipe{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.feriado-equipe .vela{
+    width:12px;
+    height:20px;
+    flex:0 0 auto;
+    background:var(--cor);
+    clip-path:var(--vela);
+}
+
+.feriado-equipe select{
+    width:100%;
+    font:500 14px var(--fonte);
+    padding:6px 8px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-s);
+    background:var(--superficie);
+}
+
+.excluir{
+    background:none;
+    color:var(--tinta-3);
+    width:34px;
+    height:34px;
+    border-radius:var(--raio-s);
+}
+
+.excluir:hover{ color:#b4232a; background:#fdecec; }
+
+/* ---------- rotação ---------- */
+
+.form-rotacao{ display:grid; gap:18px; }
+
+.opcoes{ border:none; display:grid; gap:8px; }
+
+.opcoes legend{
+    font-size:13px;
+    font-weight:600;
+    color:var(--tinta-2);
+    margin-bottom:6px;
+}
+
+.opcao{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 14px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    cursor:pointer;
+}
+
+.opcao:has(input:checked){
+    border-color:var(--sm-verde);
+    background:#f3fbf6;
+}
+
+.opcao input{ margin-top:4px; accent-color:var(--sm-verde); }
+.opcao strong{ display:block; font-weight:600; }
+.opcao small{ color:var(--tinta-2); font-size:13px; }
+
+.rotulo{ font-size:13px; font-weight:600; color:var(--tinta-2); }
+
+.ordem-lista{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:8px 0;
+}
+
+.ordem-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 12px 6px 8px;
+    border-radius:var(--raio-m);
+    background:var(--papel);
+    font-weight:600;
+}
+
+.ordem-item .vela{
+    width:12px;
+    height:18px;
+    background:var(--cor);
+    clip-path:var(--vela);
+}
+
+.link{ color:var(--sm-azul); font-size:14px; font-weight:500; }
+.link:hover{ text-decoration:underline; }
+
+.previa{ list-style:none; display:flex; flex-direction:column; }
+
+.previa li{
+    display:grid;
+    grid-template-columns:130px 1fr;
+    gap:12px;
+    align-items:center;
+    padding:9px 0;
+    border-top:1px solid var(--linha);
+}
+
+.previa li:first-child{ border-top:none; }
+
+.previa-data{ font-weight:600; }
+.previa-data small{ display:block; font-weight:400; color:var(--tinta-2); font-size:13px; }
+
+.previa-equipes{ display:flex; gap:8px; flex-wrap:wrap; }
+
+.pilula{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 10px 4px 6px;
+    border-radius:var(--raio-s);
+    background:var(--papel);
+    font-size:14px;
+    font-weight:600;
+}
+
+.pilula i{
+    width:10px;
+    height:16px;
+    background:var(--cor);
+    clip-path:var(--vela);
+}
+
+.pilula--feriado{ background:#fdecec; color:#b4232a; }
+
+/* ---------- responsivo ---------- */
+
+@media (max-width:1100px){
+    .duas-colunas{ grid-template-columns:1fr; }
+}
+
+@media (max-width:640px){
+    .mes-nav h2{ font-size:22px; min-width:0; flex:1; }
+    .mes-input{ display:none; }
+    .bloco-dias{ grid-template-columns:1fr; }
+    .feriado{ grid-template-columns:70px 1fr 36px; }
+    .feriado-equipe{ grid-column:2 / 4; }
+    .previa li{ grid-template-columns:1fr; gap:4px; }
+}

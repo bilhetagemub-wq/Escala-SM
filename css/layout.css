@@ -1,0 +1,405 @@
+/* =====================================================
+   Escala São Miguel
+   layout.css — base visual compartilhada pelas telas internas
+   Cores tiradas da marca: velas vermelha, verde e azul.
+===================================================== */
+
+:root{
+    --sm-verde:#0A9447;
+    --sm-verde-escuro:#077a3a;
+    --sm-vermelho:#EF3A42;
+    --sm-azul:#3B3F96;
+
+    --tinta:#1B2330;
+    --tinta-2:#5B6474;
+    --tinta-3:#8b93a1;
+    --papel:#EEF1F5;
+    --superficie:#ffffff;
+    --linha:#DDE2EA;
+
+    --raio-s:6px;
+    --raio-m:10px;
+    --raio-l:14px;
+
+    --sombra-card:0 1px 2px rgba(27,35,48,.08), 0 1px 0 rgba(27,35,48,.04);
+    --sombra-flutuante:0 18px 40px rgba(27,35,48,.18);
+
+    --fonte:"Barlow", "Segoe UI", system-ui, sans-serif;
+    --fonte-titulo:"Barlow Semi Condensed", "Barlow", "Segoe UI", system-ui, sans-serif;
+
+    /* Forma de vela (trapézio inclinado, como no logo) */
+    --vela:polygon(0 0, 100% 0, 62% 100%, 0 100%);
+}
+
+body.app{
+    font-family:var(--fonte);
+    background:var(--papel);
+    color:var(--tinta);
+    display:flex;
+    min-height:100vh;
+    font-size:15px;
+    line-height:1.45;
+}
+
+:focus-visible{
+    outline:3px solid color-mix(in srgb, var(--sm-azul) 55%, transparent);
+    outline-offset:2px;
+}
+
+h1,h2,h3{
+    font-family:var(--fonte-titulo);
+    letter-spacing:-.01em;
+    line-height:1.15;
+}
+
+/* =====================================================
+   MENU LATERAL
+===================================================== */
+
+.app-sidebar{
+    width:232px;
+    flex:0 0 232px;
+    background:var(--superficie);
+    border-right:1px solid var(--linha);
+    display:flex;
+    flex-direction:column;
+    padding:22px 16px;
+    position:sticky;
+    top:0;
+    height:100vh;
+}
+
+.sidebar-marca img{
+    width:100%;
+    max-width:190px;
+    display:block;
+    margin:0 auto;
+}
+
+.sidebar-produto{
+    font-size:13px;
+    color:var(--tinta-2);
+    text-align:center;
+    margin:4px 0 28px;
+}
+
+.sidebar-nav{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    flex:1;
+}
+
+.sidebar-nav a{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 14px;
+    border-radius:var(--raio-m);
+    color:var(--tinta-2);
+    font-weight:500;
+    transition:background .15s, color .15s;
+}
+
+.sidebar-nav a i{ width:18px; text-align:center; }
+
+.sidebar-nav a:hover{ background:var(--papel); color:var(--tinta); }
+
+.sidebar-nav a.ativo{
+    background:color-mix(in srgb, var(--sm-verde) 10%, white);
+    color:var(--sm-verde-escuro);
+    font-weight:600;
+}
+
+/* marcador em forma de vela no item ativo */
+.sidebar-nav a.ativo::before{
+    content:"";
+    position:absolute;
+    left:-16px;
+    top:8px;
+    bottom:8px;
+    width:9px;
+    background:var(--sm-verde);
+    clip-path:var(--vela);
+}
+
+.sidebar-sair{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 14px;
+    border-radius:var(--raio-m);
+    background:none;
+    color:var(--tinta-2);
+    font-weight:500;
+    font-size:15px;
+}
+
+.sidebar-sair:hover{ background:#fdecec; color:#b4232a; }
+
+/* =====================================================
+   ÁREA PRINCIPAL
+===================================================== */
+
+.app-main{
+    flex:1;
+    min-width:0;
+    padding:30px 36px 48px;
+}
+
+.page-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:20px;
+    flex-wrap:wrap;
+    margin-bottom:24px;
+}
+
+.page-head h1{ font-size:32px; font-weight:700; }
+
+.page-sub{
+    color:var(--tinta-2);
+    margin-top:4px;
+    max-width:62ch;
+}
+
+.page-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+}
+
+/* =====================================================
+   BOTÕES
+===================================================== */
+
+.bt{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:10px 16px;
+    border-radius:var(--raio-m);
+    font-family:var(--fonte);
+    font-size:15px;
+    font-weight:600;
+    border:1px solid transparent;
+    background:var(--superficie);
+    color:var(--tinta);
+    transition:background .15s, border-color .15s, color .15s;
+    white-space:nowrap;
+}
+
+.bt-principal{ background:var(--sm-verde); color:#fff; }
+.bt-principal:hover{ background:var(--sm-verde-escuro); }
+
+.bt-contorno{ border-color:var(--linha); }
+.bt-contorno:hover{ border-color:var(--tinta-3); }
+
+.bt-perigo{ background:none; color:#b4232a; border-color:#f3c5c7; }
+.bt-perigo:hover{ background:#fdecec; }
+
+.bt-texto{ background:none; color:var(--tinta-2); padding:8px 10px; }
+.bt-texto:hover{ color:var(--tinta); background:rgba(27,35,48,.05); }
+
+.bt-icone{
+    width:38px;
+    height:38px;
+    padding:0;
+    border-radius:var(--raio-m);
+    border:1px solid var(--linha);
+    background:var(--superficie);
+    color:var(--tinta-2);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.bt-icone:hover{ color:var(--tinta); border-color:var(--tinta-3); }
+
+.bt:disabled{ opacity:.55; cursor:not-allowed; }
+
+/* =====================================================
+   CAMPOS
+===================================================== */
+
+.campo{ display:flex; flex-direction:column; gap:6px; }
+
+.campo > span{ font-size:13px; font-weight:600; color:var(--tinta-2); }
+
+.campo input,
+.campo select,
+.entrada{
+    font-family:var(--fonte);
+    font-size:15px;
+    padding:10px 12px;
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    background:var(--superficie);
+    color:var(--tinta);
+    width:100%;
+}
+
+.campo input:focus,
+.campo select:focus,
+.entrada:focus{
+    border-color:var(--sm-azul);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--sm-azul) 18%, transparent);
+}
+
+/* =====================================================
+   MODAL
+===================================================== */
+
+.modal-fundo{
+    position:fixed;
+    inset:0;
+    background:rgba(27,35,48,.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    z-index:100;
+}
+
+.modal-caixa{
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    width:min(460px, 100%);
+    max-height:calc(100vh - 40px);
+    overflow:auto;
+    box-shadow:var(--sombra-flutuante);
+    animation:abrirModal .18s ease-out;
+}
+
+.modal-topo{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:20px 22px 0;
+}
+
+.modal-topo h2{ font-size:22px; }
+
+.modal-corpo{
+    padding:18px 22px;
+    display:grid;
+    gap:14px;
+}
+
+.modal-linha{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+.modal-rodape{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:0 22px 22px;
+}
+
+.modal-rodape .direita{ display:flex; gap:10px; margin-left:auto; }
+
+@keyframes abrirModal{
+    from{ opacity:0; transform:translateY(8px) scale(.98); }
+    to{ opacity:1; transform:none; }
+}
+
+/* =====================================================
+   AVISOS (TOAST)
+===================================================== */
+
+.avisos{
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    z-index:200;
+}
+
+.toast{
+    background:var(--tinta);
+    color:#fff;
+    padding:12px 16px;
+    border-radius:var(--raio-m);
+    box-shadow:var(--sombra-flutuante);
+    font-weight:500;
+    max-width:340px;
+    border-left:5px solid var(--sm-verde);
+    animation:abrirModal .18s ease-out;
+    transition:opacity .3s;
+}
+
+.toast--erro{ border-left-color:var(--sm-vermelho); }
+.toast.saindo{ opacity:0; }
+
+/* =====================================================
+   VAZIO
+===================================================== */
+
+.vazio{
+    background:var(--superficie);
+    border:1px dashed var(--linha);
+    border-radius:var(--raio-l);
+    padding:36px 24px;
+    text-align:center;
+    color:var(--tinta-2);
+}
+
+.vazio h3{ color:var(--tinta); font-size:20px; margin-bottom:6px; }
+.vazio .bt{ margin-top:14px; }
+
+/* =====================================================
+   RESPONSIVO — menu vira barra inferior
+===================================================== */
+
+@media (max-width:860px){
+
+    body.app{ flex-direction:column; }
+
+    .app-sidebar{
+        position:fixed;
+        top:auto;
+        bottom:0;
+        left:0;
+        right:0;
+        width:auto;
+        height:auto;
+        flex-direction:row;
+        align-items:center;
+        padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+        border-right:none;
+        border-top:1px solid var(--linha);
+        z-index:50;
+    }
+
+    .sidebar-marca,
+    .sidebar-produto{ display:none; }
+
+    .sidebar-nav{ flex-direction:row; justify-content:space-around; }
+
+    .sidebar-nav a,
+    .sidebar-sair{
+        flex-direction:column;
+        gap:2px;
+        font-size:12px;
+        padding:8px 10px;
+    }
+
+    .sidebar-nav a.ativo::before{ display:none; }
+
+    .app-main{ padding:22px 16px 96px; }
+
+    .avisos{ bottom:84px; left:16px; right:16px; }
+
+    .toast{ max-width:none; }
+
+    .page-head h1{ font-size:26px; }
+}
+
+@media (prefers-reduced-motion:reduce){
+    *{ animation:none !important; transition:none !important; }
+}

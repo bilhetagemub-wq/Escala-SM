@@ -1,0 +1,334 @@
+/* =====================================================
+   Escala São Miguel
+   funcionarios.css — quadro de equipes (estilo Trello)
+===================================================== */
+
+.app-main--quadro{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    padding-bottom:20px;
+}
+
+/* ---------- filtros ---------- */
+
+.quadro-filtros{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:18px;
+}
+
+.busca{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--superficie);
+    border:1px solid var(--linha);
+    border-radius:var(--raio-m);
+    padding:0 12px;
+    flex:1 1 280px;
+    max-width:420px;
+}
+
+.busca:focus-within{ border-color:var(--sm-azul); }
+.busca i{ color:var(--tinta-3); }
+
+.busca input{
+    border:none;
+    background:none;
+    padding:10px 0;
+    font:inherit;
+    width:100%;
+}
+
+.filtro-turno{ display:flex; gap:6px; }
+
+.chip{
+    padding:7px 14px;
+    border-radius:999px;
+    background:var(--superficie);
+    border:1px solid var(--linha);
+    color:var(--tinta-2);
+    font:600 14px var(--fonte);
+}
+
+.chip.ativo{ background:var(--tinta); border-color:var(--tinta); color:#fff; }
+
+.alternar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--tinta-2);
+    font-size:14px;
+    cursor:pointer;
+}
+
+.alternar input{ width:16px; height:16px; accent-color:var(--sm-verde); }
+
+/* ---------- quadro ---------- */
+
+.quadro{
+    flex:1;
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding-bottom:12px;
+    min-height:0;
+}
+
+.carregando{ color:var(--tinta-2); }
+
+.coluna{
+    --cor:var(--tinta-3);
+    flex:0 0 288px;
+    max-height:100%;
+    display:flex;
+    flex-direction:column;
+    background:#E3E7EE;
+    border-radius:var(--raio-l);
+    position:relative;
+    overflow:hidden;
+}
+
+/* faixa superior com a cor da equipe */
+.coluna::before{
+    content:"";
+    height:5px;
+    background:var(--cor);
+    flex:0 0 auto;
+}
+
+.coluna--livre{
+    background:transparent;
+    border:2px dashed #cbd2dd;
+}
+
+.coluna--livre::before{ display:none; }
+
+.coluna-topo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 10px 4px 12px;
+}
+
+.coluna-alca{
+    cursor:grab;
+    color:var(--tinta-3);
+    padding:4px 2px;
+    background:none;
+    font-size:14px;
+}
+
+.coluna-alca:active{ cursor:grabbing; }
+
+.coluna-vela{
+    width:16px;
+    height:18px;
+    background:var(--cor);
+    clip-path:var(--vela);
+    flex:0 0 auto;
+}
+
+.coluna-topo h2{
+    font-size:18px;
+    font-weight:700;
+    flex:1;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.contagem{
+    font-size:13px;
+    font-weight:600;
+    color:var(--tinta-2);
+    background:rgba(255,255,255,.7);
+    border-radius:999px;
+    padding:1px 9px;
+}
+
+.coluna-editar{
+    background:none;
+    color:var(--tinta-3);
+    width:30px;
+    height:30px;
+    border-radius:var(--raio-s);
+}
+
+.coluna-editar:hover{ background:rgba(27,35,48,.08); color:var(--tinta); }
+
+.coluna-posicao{
+    font-size:13px;
+    color:var(--tinta-2);
+    padding:0 12px 8px 36px;
+}
+
+.coluna-cards{
+    flex:1;
+    overflow-y:auto;
+    padding:4px 10px 6px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-height:56px;
+}
+
+.coluna--livre .coluna-posicao{ padding-left:12px; }
+
+.coluna-vazia{
+    font-size:14px;
+    color:var(--tinta-3);
+    text-align:center;
+    padding:14px 8px;
+    border:1px dashed #c6cdd8;
+    border-radius:var(--raio-m);
+    pointer-events:none;
+}
+
+.adicionar-card{
+    margin:4px 10px 10px;
+    padding:9px 10px;
+    border-radius:var(--raio-m);
+    background:none;
+    color:var(--tinta-2);
+    font:600 14px var(--fonte);
+    text-align:left;
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.adicionar-card:hover{ background:rgba(27,35,48,.07); color:var(--tinta); }
+
+/* coluna de "nova equipe" */
+.coluna-nova{
+    flex:0 0 240px;
+    border:2px dashed #cbd2dd;
+    border-radius:var(--raio-l);
+    background:none;
+    color:var(--tinta-2);
+    font:600 15px var(--fonte);
+    padding:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+}
+
+.coluna-nova:hover{ border-color:var(--sm-verde); color:var(--sm-verde-escuro); }
+
+/* ---------- card do funcionário ---------- */
+
+.card-func{
+    background:var(--superficie);
+    border-radius:var(--raio-m);
+    box-shadow:var(--sombra-card);
+    padding:10px 12px;
+    display:grid;
+    grid-template-columns:36px 1fr;
+    gap:4px 10px;
+    cursor:grab;
+    user-select:none;
+    border:1px solid transparent;
+}
+
+.card-func:hover{ border-color:#c9d0db; }
+
+.card-func.inativo{ opacity:.55; }
+
+.avatar{
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:13px;
+    color:#fff;
+    background:var(--cor, var(--tinta-3));
+    grid-row:span 2;
+}
+
+.card-nome{
+    font-weight:600;
+    line-height:1.25;
+    overflow-wrap:anywhere;
+}
+
+.card-funcao{
+    font-size:13px;
+    color:var(--tinta-2);
+}
+
+.card-meta{
+    grid-column:2;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-top:4px;
+}
+
+.etiqueta{
+    font-size:12px;
+    font-weight:600;
+    padding:2px 8px;
+    border-radius:var(--raio-s);
+    background:var(--papel);
+    color:var(--tinta-2);
+}
+
+.etiqueta--noite{ background:#e6e7f5; color:var(--sm-azul); }
+.etiqueta--manha{ background:#fff4db; color:#8a5a00; }
+.etiqueta--inativo{ background:#fdecec; color:#b4232a; }
+
+/* estados do arraste (SortableJS) */
+.card-fantasma{
+    opacity:.35;
+    background:color-mix(in srgb, var(--sm-verde) 15%, white);
+    border:2px dashed var(--sm-verde);
+    box-shadow:none;
+}
+
+.card-arrastando{
+    transform:rotate(2.5deg);
+    box-shadow:var(--sombra-flutuante);
+    cursor:grabbing;
+}
+
+.coluna-fantasma{ opacity:.4; }
+
+/* ---------- modal: paleta ---------- */
+
+.cores{ border:none; }
+
+.paleta{ display:flex; gap:10px; flex-wrap:wrap; }
+
+.paleta label{ cursor:pointer; }
+
+.paleta input{ position:absolute; opacity:0; pointer-events:none; }
+
+.paleta span{
+    display:block;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:var(--c);
+    border:3px solid #fff;
+    box-shadow:0 0 0 1px var(--linha);
+}
+
+.paleta input:checked + span{ box-shadow:0 0 0 3px var(--tinta); }
+.paleta input:focus-visible + span{ outline:3px solid var(--sm-azul); outline-offset:2px; }
+
+@media (max-width:860px){
+    .app-main--quadro{ height:auto; min-height:100vh; }
+    .quadro{ overflow-y:visible; }
+    .coluna{ flex-basis:80vw; max-height:none; }
+}

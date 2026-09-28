@@ -1,0 +1,136 @@
+/* =====================================================
+   Escala São Miguel
+   dashboard.css — tela inicial
+===================================================== */
+
+/* bloco principal: plantão do fim de semana */
+.plantao{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
+    gap:14px;
+    margin-bottom:28px;
+}
+
+.plantao-dia{
+    --cor:var(--tinta-3);
+    position:relative;
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    box-shadow:var(--sombra-card);
+    padding:22px 22px 22px 128px;
+    min-height:180px;
+    overflow:hidden;
+}
+
+/* vela grande da equipe, como no logo */
+.plantao-dia::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:108px;
+    background:var(--cor);
+    clip-path:polygon(0 0, 100% 0, 56% 100%, 0 100%);
+}
+
+.plantao-data{
+    position:absolute;
+    left:16px;
+    top:18px;
+    color:#fff;
+    font-family:var(--fonte-titulo);
+    line-height:1;
+}
+
+.plantao-data strong{ display:block; font-size:44px; font-weight:700; }
+.plantao-data span{ font-size:15px; font-weight:600; }
+
+.plantao-quando{ color:var(--tinta-2); font-weight:600; font-size:14px; }
+
+.plantao-equipe{
+    font-family:var(--fonte-titulo);
+    font-size:34px;
+    font-weight:700;
+    margin:2px 0 12px;
+}
+
+.plantao-feriado{
+    color:#b4232a;
+    font-weight:600;
+    margin:-8px 0 10px;
+}
+
+.plantao-membros{
+    list-style:none;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.plantao-membros li{
+    background:var(--papel);
+    border-radius:999px;
+    padding:4px 12px;
+    font-size:14px;
+    font-weight:500;
+}
+
+.plantao-membros li.ausente{
+    background:none;
+    border:1px dashed var(--tinta-3);
+    color:var(--tinta-3);
+    text-decoration:line-through;
+}
+
+/* blocos secundários */
+.painel-grade{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+    gap:20px;
+}
+
+.bloco-info{
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    box-shadow:var(--sombra-card);
+    padding:20px 22px;
+}
+
+.bloco-info h2{ font-size:20px; margin-bottom:10px; }
+
+.lista-simples{ list-style:none; margin-bottom:12px; }
+
+.lista-simples li{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:9px 0;
+    border-top:1px solid var(--linha);
+}
+
+.lista-simples li:first-child{ border-top:none; }
+
+.lista-simples .vela{
+    width:12px;
+    height:20px;
+    flex:0 0 auto;
+    background:var(--cor);
+    clip-path:var(--vela);
+}
+
+.lista-simples .principal{ flex:1; min-width:0; }
+.lista-simples small{ display:block; color:var(--tinta-2); font-size:13px; }
+.lista-simples .lado{ color:var(--tinta-2); font-size:14px; font-weight:600; white-space:nowrap; }
+
+.link{ color:var(--sm-azul); font-size:14px; font-weight:500; }
+.link:hover{ text-decoration:underline; }
+
+.texto-apoio{ color:var(--tinta-2); font-size:14px; }
+
+@media (max-width:640px){
+    .plantao-dia{ padding-left:108px; }
+    .plantao-dia::before{ width:92px; }
+    .plantao-data strong{ font-size:36px; }
+    .plantao-equipe{ font-size:28px; }
+}

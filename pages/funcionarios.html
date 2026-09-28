@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equipes | Escala São Miguel</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/funcionarios.css">
+</head>
+
+<body class="app">
+
+<aside id="sidebar" class="app-sidebar"></aside>
+
+<main class="app-main app-main--quadro">
+
+    <header class="page-head">
+        <div>
+            <h1>Equipes de manutenção</h1>
+            <p class="page-sub">
+                Arraste os funcionários entre as equipes. Arraste a coluna pela alça
+                para mudar a ordem do rodízio.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <button id="btnNovaEquipe" class="bt bt-contorno">
+                <i class="fa-solid fa-flag" aria-hidden="true"></i> Nova equipe
+            </button>
+            <button id="btnNovo" class="bt bt-principal">
+                <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Novo funcionário
+            </button>
+        </div>
+    </header>
+
+    <div class="quadro-filtros">
+        <label class="busca">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input type="search" id="busca" placeholder="Buscar por nome, matrícula ou função" aria-label="Buscar funcionário">
+        </label>
+
+        <div class="filtro-turno" role="group" aria-label="Filtrar por turno">
+            <button class="chip ativo" data-turno="">Todos</button>
+            <button class="chip" data-turno="Manhã">Manhã</button>
+            <button class="chip" data-turno="Noite">Noite</button>
+        </div>
+
+        <label class="alternar">
+            <input type="checkbox" id="mostrarInativos">
+            <span>Mostrar inativos</span>
+        </label>
+    </div>
+
+    <div id="quadro" class="quadro" aria-live="polite">
+        <p class="carregando">Carregando equipes…</p>
+    </div>
+
+</main>
+
+<!-- MODAL FUNCIONÁRIO -->
+<div class="modal-fundo hidden" id="modalFuncionario" role="dialog" aria-modal="true" aria-labelledby="tituloFuncionario">
+    <form class="modal-caixa" id="formFuncionario" novalidate>
+        <div class="modal-topo">
+            <h2 id="tituloFuncionario">Novo funcionário</h2>
+            <button type="button" class="bt-icone" data-fechar aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-corpo">
+            <input type="hidden" id="funcId">
+
+            <label class="campo">
+                <span>Nome</span>
+                <input type="text" id="funcNome" required autocomplete="off">
+            </label>
+
+            <div class="modal-linha">
+                <label class="campo">
+                    <span>Matrícula</span>
+                    <input type="text" id="funcMatricula" autocomplete="off">
+                </label>
+                <label class="campo">
+                    <span>Função</span>
+                    <input type="text" id="funcFuncao" list="listaFuncoes" autocomplete="off" placeholder="Ex.: Eletricista">
+                    <datalist id="listaFuncoes"></datalist>
+                </label>
+            </div>
+
+            <div class="modal-linha">
+                <label class="campo">
+                    <span>Turno</span>
+                    <select id="funcTurno">
+                        <option value="Manhã">Manhã</option>
+                        <option value="Noite">Noite</option>
+                    </select>
+                </label>
+                <label class="campo">
+                    <span>Status</span>
+                    <select id="funcStatus">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Inativo">Inativo</option>
+                    </select>
+                </label>
+            </div>
+
+            <label class="campo">
+                <span>Equipe</span>
+                <select id="funcEquipe"></select>
+            </label>
+        </div>
+
+        <div class="modal-rodape">
+            <button type="button" class="bt bt-perigo hidden" id="btnExcluirFunc">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i> Excluir
+            </button>
+            <div class="direita">
+                <button type="button" class="bt bt-contorno" data-fechar>Cancelar</button>
+                <button type="submit" class="bt bt-principal" id="btnSalvarFunc">Salvar funcionário</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- MODAL EQUIPE -->
+<div class="modal-fundo hidden" id="modalEquipe" role="dialog" aria-modal="true" aria-labelledby="tituloEquipe">
+    <form class="modal-caixa" id="formEquipe" novalidate>
+        <div class="modal-topo">
+            <h2 id="tituloEquipe">Nova equipe</h2>
+            <button type="button" class="bt-icone" data-fechar aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-corpo">
+            <input type="hidden" id="equipeId">
+
+            <label class="campo">
+                <span>Nome da equipe</span>
+                <input type="text" id="equipeNome" required autocomplete="off" placeholder="Ex.: Equipe A">
+            </label>
+
+            <fieldset class="campo cores">
+                <span>Cor na escala</span>
+                <div id="equipeCores" class="paleta"></div>
+            </fieldset>
+        </div>
+
+        <div class="modal-rodape">
+            <button type="button" class="bt bt-perigo hidden" id="btnExcluirEquipe">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i> Excluir equipe
+            </button>
+            <div class="direita">
+                <button type="button" class="bt bt-contorno" data-fechar>Cancelar</button>
+                <button type="submit" class="bt bt-principal">Salvar equipe</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+<script type="module" src="../js/funcionarios.js"></script>
+
+</body>
+</html>
