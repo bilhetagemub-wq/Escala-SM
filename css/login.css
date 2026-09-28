@@ -1,0 +1,425 @@
+/* ==========================================================
+   Escala São Miguel
+   login.css
+========================================================== */
+
+/* Fundo */
+
+body{
+    overflow:hidden;
+    position:relative;
+}
+
+/* Gradiente */
+
+.background{
+
+    position:fixed;
+    inset:0;
+
+    background:
+    linear-gradient(
+        135deg,
+        #0f172a 0%,
+        #1d4ed8 45%,
+        #2563eb 100%
+    );
+
+}
+
+/* Bolhas decorativas */
+
+.background::before{
+
+    content:"";
+
+    position:absolute;
+
+    width:420px;
+    height:420px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.08);
+
+    top:-120px;
+    left:-120px;
+
+    filter:blur(5px);
+
+}
+
+.background::after{
+
+    content:"";
+
+    position:absolute;
+
+    width:350px;
+    height:350px;
+
+    border-radius:50%;
+
+    background:rgba(255,255,255,.05);
+
+    bottom:-120px;
+    right:-100px;
+
+}
+
+/* ================================================= */
+
+.login-container{
+
+    width:100%;
+    min-height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    padding:30px;
+
+    position:relative;
+
+    z-index:2;
+
+}
+
+/* ================================================= */
+
+.login-card{
+
+    width:430px;
+    max-width:100%;
+
+    padding:45px;
+
+    border-radius:22px;
+
+    backdrop-filter:blur(20px);
+
+    background:rgba(255,255,255,.96);
+
+    box-shadow:
+
+        0 25px 70px rgba(0,0,0,.25);
+
+    animation:showCard .7s ease;
+
+}
+
+/* ================================================= */
+
+.logo-area{
+
+    text-align:center;
+
+    margin-bottom:35px;
+
+}
+
+.logo-circle{
+
+    width:95px;
+    height:95px;
+
+    margin:auto;
+
+    border-radius:50%;
+
+    background:linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:#fff;
+
+    font-size:38px;
+
+    box-shadow:
+
+    0 12px 35px rgba(37,99,235,.35);
+
+    margin-bottom:20px;
+
+}
+
+.logo-area h1{
+
+    font-size:28px;
+
+    color:#0f172a;
+
+    margin-bottom:6px;
+
+}
+
+.logo-area p{
+
+    color:#64748b;
+
+    font-size:15px;
+
+}
+
+/* ================================================= */
+
+.input-group{
+
+    margin-bottom:22px;
+
+}
+
+.input-box{
+
+    position:relative;
+
+}
+
+.input-box i:first-child{
+
+    color:#64748b;
+
+}
+
+.input-box input{
+
+    font-size:15px;
+
+}
+
+/* ================================================= */
+
+.toggle-password{
+
+    background:none;
+
+    border:none;
+
+    color:#64748b;
+
+    font-size:17px;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.toggle-password:hover{
+
+    color:#2563eb;
+
+}
+
+/* ================================================= */
+
+.login-options{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:25px;
+
+    font-size:14px;
+
+}
+
+.remember{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    color:#475569;
+
+}
+
+.remember input{
+
+    width:16px;
+    height:16px;
+
+}
+
+.login-options a{
+
+    color:#2563eb;
+
+    font-weight:500;
+
+}
+
+.login-options a:hover{
+
+    text-decoration:underline;
+
+}
+
+/* ================================================= */
+
+.btn-login{
+
+    width:100%;
+
+    height:54px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:
+
+    linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
+
+    color:#fff;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    gap:12px;
+
+    transition:.25s;
+
+}
+
+.btn-login:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:
+
+    0 12px 28px rgba(37,99,235,.35);
+
+}
+
+.btn-login:active{
+
+    transform:scale(.98);
+
+}
+
+/* ================================================= */
+
+.message{
+
+    margin-top:18px;
+
+    min-height:24px;
+
+    text-align:center;
+
+    font-size:14px;
+
+    color:#ef4444;
+
+}
+
+/* ================================================= */
+
+footer{
+
+    margin-top:30px;
+
+    text-align:center;
+
+    color:#64748b;
+
+    font-size:13px;
+
+}
+
+/* ================================================= */
+
+@keyframes showCard{
+
+    from{
+
+        opacity:0;
+
+        transform:
+
+        translateY(30px)
+        scale(.96);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:
+
+        translateY(0)
+        scale(1);
+
+    }
+
+}
+
+/* ================================================= */
+
+@media(max-width:500px){
+
+    .login-card{
+
+        padding:30px 24px;
+
+        border-radius:18px;
+
+    }
+
+    .logo-circle{
+
+        width:80px;
+        height:80px;
+
+        font-size:32px;
+
+    }
+
+    .logo-area h1{
+
+        font-size:23px;
+
+    }
+
+}
+
+/* ================================================= */
+
+@media(max-height:650px){
+
+    body{
+
+        overflow:auto;
+
+    }
+
+}
