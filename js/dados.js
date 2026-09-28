@@ -4,11 +4,11 @@
 // ======================================================
 //
 // Coleções usadas:
-//   equipes       { nome, cor, ordem }
-//   funcionarios  { nome, matricula, funcao, turno, status, equipeId, ordem }
-//   feriados      { data: "AAAA-MM-DD", descricao, equipeFixaId }
-//   config/escala { modo, dataReferencia, equipeInicialId, feriadoEquipeInicialId, feriadoNoFimDeSemana }
-//   escalas/{AAAA-MM} { trocas, ausencias, dias (retrato salvo), atualizadoEm }
+//   equipes       { nome, cor, ordem, escala: "diurna" | "noturna" }
+//   funcionarios  { nome, matricula, funcao, turno: "Diurno" | "Noturno", status, equipeId, ordem }
+//   feriados      { data: "AAAA-MM-DD", descricao, equipeFixa: { diurna, noturna } }
+//   config/escala-{tipo}      { modo, dataReferencia, equipeInicialId, feriadoEquipeInicialId, feriadoNoFimDeSemana }
+//   escalas/{AAAA-MM}-{tipo}  { trocas, ausencias, dias (retrato salvo), atualizadoEm }
 
 import { db } from "./firebase.js";
 import { CONFIG_PADRAO } from "./escala-engine.js";
@@ -35,6 +35,51 @@ export const CORES_EQUIPE = [
 ];
 
 export const ROTULO_AUSENCIA = { FE: "Férias", A: "Afastamento" };
+
+// ------------------------------------------------------
+// Tipos de escala: diurna e noturna
+// ------------------------------------------------------
+// Cada tipo tem suas próprias equipes, rodízio, fila de feriados
+// e escala salva. O funcionário pertence ao tipo pelo campo "turno".
+
+export const TIPOS = {
+    diurna: { id: "diurna", rotulo: "Escala diurna", curto: "Diurna", turno: "Diurno", icone: "fa-sun" },
+    noturna: { id: "noturna", rotulo: "Escala noturna", curto: "Noturna", turno: "Noturno", icone: "fa-moon" }
+};
+
+// Texto para comparação: sem acento, sem espaços extras, minúsculo
+export function normalizar(texto) {
+    return String(texto ?? "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+}
+
+// Aceita os valores antigos (Manhã / Noite) e variações digitadas na planilha
+export function tipoDoTexto(texto) {
+    const t = normalizar(texto);
+    if (!t) return null;
+    if (["noturna", "noturno", "noite", "n"].includes(t)) return "noturna";
+    if (["diurna", "diurno", "dia", "manha", "tarde", "d"].includes(t)) return "diurna";
+    return null;
+}
+
+export const tipoDoFuncionario = (f) => tipoDoTexto(f?.turno) || "diurna";
+export const tipoDaEquipe = (e) => (e?.escala === "noturna" ? "noturna" : "diurna");
+
+// Equipe fixa de um feriado para o tipo (compatível com o campo antigo equipeFixaId)
+export function equipeFixaDoTipo(feriado, tipo, equipes) {
+    if (feriado.equipeFixa && tipo in feriado.equipeFixa) return feriado.equipeFixa[tipo] || null;
+    const antiga = feriado.equipeFixaId;
+    if (antiga && equipes.some((e) => e.id === antiga && tipoDaEquipe(e) === tipo)) return antiga;
+    return null;
+}
+
+export function proximaCor(equipes) {
+    const usadas = new Set(equipes.map((e) => e.cor));
+    return CORES_EQUIPE.find((c) => !usadas.has(c)) || CORES_EQUIPE[equipes.length % CORES_EQUIPE.length];
+}
 
 // ------------------------------------------------------
 // Ordenação
@@ -85,22 +130,27 @@ export async function lerColecao(nome) {
 // Configuração do rodízio
 // ------------------------------------------------------
 
-export async function lerConfig() {
-    const snap = await getDoc(doc(db, "config", "escala"));
+export async function lerConfig(tipo = "diurna") {
+    let snap = await getDoc(doc(db, "config", `escala-${tipo}`));
+
+    // A versão anterior tinha uma configuração só: vale para a diurna
+    if (!snap.exists() && tipo === "diurna") snap = await getDoc(doc(db, "config", "escala"));
+
     return snap.exists() ? { ...CONFIG_PADRAO, ...snap.data(), existe: true } : { ...CONFIG_PADRAO, existe: false };
 }
 
-export async function salvarConfig(config) {
-    const { existe, ...dados } = config;
-    await setDoc(doc(db, "config", "escala"), { ...dados, atualizadoEm: serverTimestamp() }, { merge: true });
+export async function salvarConfig(tipo, config) {
+    const { existe, atualizadoEm, ...dados } = config;
+    await setDoc(doc(db, "config", `escala-${tipo}`), { ...dados, tipo, atualizadoEm: serverTimestamp() }, { merge: true });
 }
 
 // ------------------------------------------------------
 // Ajustes do mês (trocas de equipe e ausências)
 // ------------------------------------------------------
 
-export async function lerAjustesDoMes(mesISO) {
-    const snap = await getDoc(doc(db, "escalas", mesISO));
+export async function lerAjustesDoMes(mesISO, tipo = "diurna") {
+    let snap = await getDoc(doc(db, "escalas", `${mesISO}-${tipo}`));
+    if (!snap.exists() && tipo === "diurna") snap = await getDoc(doc(db, "escalas", mesISO));
     if (!snap.exists()) return { trocas: {}, ausencias: {}, salvo: false };
     const d = snap.data();
     return {
@@ -111,9 +161,10 @@ export async function lerAjustesDoMes(mesISO) {
     };
 }
 
-export async function salvarEscalaDoMes(mesISO, ajustes, retrato) {
-    await setDoc(doc(db, "escalas", mesISO), {
+export async function salvarEscalaDoMes(mesISO, tipo, ajustes, retrato) {
+    await setDoc(doc(db, "escalas", `${mesISO}-${tipo}`), {
         mes: mesISO,
+        tipo,
         trocas: ajustes.trocas || {},
         ausencias: ajustes.ausencias || {},
         dias: retrato,

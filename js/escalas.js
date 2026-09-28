@@ -8,7 +8,7 @@ import { montarLayout, aviso } from "./layout.js";
 import {
     ouvirEquipes, ouvirFuncionarios, ouvirFeriados,
     lerConfig, salvarConfig, lerAjustesDoMes, salvarEscalaDoMes,
-    ROTULO_AUSENCIA, esc
+    ROTULO_AUSENCIA, TIPOS, tipoDaEquipe, equipeFixaDoTipo, esc
 } from "./dados.js";
 import {
     gerarEscalaDoMes, integrantesDoDia, distribuirFeriados, feriadosNacionais,
@@ -26,11 +26,17 @@ montarLayout("escalas");
 // Estado
 // ------------------------------------------------------
 
+// "equipes" e "feriados" guardam só o que vale para a escala aberta
+// (diurna ou noturna); as listas completas ficam em "todas...".
+let todasEquipes = [];
+let todosFeriados = [];
 let equipes = [];
 let funcionarios = [];
 let feriados = [];
+const params = new URLSearchParams(location.search);
+let tipoAtual = params.get("tipo") === "noturna" ? "noturna" : "diurna";
 let config = null;
-let mesAtual = new URLSearchParams(location.search).get("mes") || mesDe(hojeISO());
+let mesAtual = params.get("mes") || mesDe(hojeISO());
 let ajustes = { trocas: {}, ausencias: {}, salvo: false };
 let sujo = false;
 const pronto = { equipes: false, funcionarios: false, feriados: false, config: false };
@@ -47,18 +53,61 @@ const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 // Carregamento
 // ------------------------------------------------------
 
-ouvirEquipes((l) => { equipes = l; pronto.equipes = true; aoMudarDados(); });
-ouvirFuncionarios((l) => { funcionarios = l; pronto.funcionarios = true; aoMudarDados(); });
-ouvirFeriados((l) => { feriados = l; pronto.feriados = true; aoMudarDados(); });
+function filtrarPorTipo() {
+    equipes = todasEquipes.filter((e) => tipoDaEquipe(e) === tipoAtual);
+    feriados = todosFeriados.map((f) => ({ ...f, equipeFixaId: equipeFixaDoTipo(f, tipoAtual, todasEquipes) }));
+}
 
-lerConfig()
-    .then((c) => { config = c; pronto.config = true; preencherFormRotacao(); aoMudarDados(); })
-    .catch((erro) => {
+ouvirEquipes((l) => { todasEquipes = l; filtrarPorTipo(); pronto.equipes = true; aoMudarDados(); });
+ouvirFuncionarios((l) => { funcionarios = l; pronto.funcionarios = true; aoMudarDados(); });
+ouvirFeriados((l) => { todosFeriados = l; filtrarPorTipo(); pronto.feriados = true; aoMudarDados(); });
+
+let pedidoConfig = 0;
+async function carregarConfig() {
+    const pedido = ++pedidoConfig;
+    pronto.config = false;
+    try {
+        const c = await lerConfig(tipoAtual);
+        if (pedido !== pedidoConfig) return; // trocou de escala no meio
+        config = c;
+        pronto.config = true;
+        preencherFormRotacao();
+        aoMudarDados();
+    } catch (erro) {
         console.error(erro);
         aviso("Não foi possível ler a configuração do rodízio.", "erro");
-    });
+    }
+}
 
+carregarConfig();
 carregarMes(mesAtual, true);
+atualizarSeletor();
+
+// ------------------------------------------------------
+// Diurna / noturna
+// ------------------------------------------------------
+
+function atualizarSeletor() {
+    document.querySelectorAll(".seletor-bt").forEach((b) => {
+        b.classList.toggle("ativo", b.dataset.tipo === tipoAtual);
+        b.setAttribute("aria-selected", b.dataset.tipo === tipoAtual);
+    });
+    document.getElementById("linkOrdem").href = `/pages/funcionarios.html?tipo=${tipoAtual}`;
+    document.title = `${TIPOS[tipoAtual].rotulo} | Escala São Miguel`;
+}
+
+document.querySelectorAll(".seletor-bt").forEach((bt) => {
+    bt.addEventListener("click", async () => {
+        if (bt.dataset.tipo === tipoAtual) return;
+        if (sujo && !confirm("Há alterações não salvas nesta escala. Descartar e trocar?")) return;
+        tipoAtual = bt.dataset.tipo;
+        sujo = false;
+        filtrarPorTipo();
+        atualizarSeletor();
+        carregarConfig();
+        await carregarMes(mesAtual, true);
+    });
+});
 
 async function aoMudarDados() {
     if (!Object.values(pronto).every(Boolean)) return;
@@ -74,8 +123,8 @@ async function aoMudarDados() {
             existe: true
         };
         try {
-            await salvarConfig(config);
-            aviso(`Rodízio iniciado: ${equipes[0].nome} começa neste fim de semana. Ajuste na aba Rotação.`);
+            await salvarConfig(tipoAtual, config);
+            aviso(`${TIPOS[tipoAtual].rotulo}: ${equipes[0].nome} começa neste fim de semana. Ajuste na aba Rotação.`);
         } catch (erro) {
             console.error(erro);
         }
@@ -118,10 +167,10 @@ async function carregarMes(mes, inicial = false) {
     sujo = false;
     $("mes").value = mes;
     $("mesTitulo").textContent = tituloMes(mes);
-    history.replaceState(null, "", `?mes=${mes}`);
+    history.replaceState(null, "", `?tipo=${tipoAtual}&mes=${mes}`);
 
     try {
-        ajustes = await lerAjustesDoMes(mes);
+        ajustes = await lerAjustesDoMes(mes, tipoAtual);
     } catch (erro) {
         console.error(erro);
         ajustes = { trocas: {}, ausencias: {}, salvo: false };
@@ -232,9 +281,9 @@ function renderMes() {
         resumo.innerHTML = "";
         grade.innerHTML = `
             <div class="vazio">
-                <h3>Crie as equipes para gerar a escala</h3>
-                <p>A escala reveza as equipes nos fins de semana. Monte pelo menos duas equipes e distribua os funcionários.</p>
-                <a class="bt bt-principal" href="/pages/funcionarios.html"><i class="fa-solid fa-people-group"></i> Montar equipes</a>
+                <h3>A ${TIPOS[tipoAtual].rotulo.toLowerCase()} ainda não tem equipes</h3>
+                <p>A escala reveza as equipes nos fins de semana. Monte pelo menos duas equipes ${tipoAtual === "noturna" ? "noturnas" : "diurnas"} e distribua os funcionários.</p>
+                <a class="bt bt-principal" href="/pages/funcionarios.html?tipo=${tipoAtual}"><i class="fa-solid fa-people-group"></i> Montar equipes</a>
             </div>`;
         return;
     }
@@ -337,11 +386,11 @@ $("btnSalvar").addEventListener("click", async () => {
     bt.disabled = true;
 
     try {
-        await salvarEscalaDoMes(mesAtual, ajustes, retrato);
+        await salvarEscalaDoMes(mesAtual, tipoAtual, ajustes, retrato);
         ajustes = { ...ajustes, salvo: true, atualizadoEm: new Date() };
         sujo = false;
         renderStatus();
-        aviso(`Escala de ${tituloMes(mesAtual).toLowerCase()} salva.`);
+        aviso(`${TIPOS[tipoAtual].rotulo} de ${tituloMes(mesAtual).toLowerCase()} salva.`);
     } catch (erro) {
         console.error(erro);
         aviso("Não foi possível salvar a escala. Verifique a conexão.", "erro");
@@ -401,7 +450,7 @@ $("btnPDF").addEventListener("click", async () => {
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(16);
-    pdf.text("Escala de plantão de fim de semana", largura - 14, 17, { align: "right" });
+    pdf.text(`${TIPOS[tipoAtual].rotulo} de plantão`, largura - 14, 17, { align: "right" });
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(12);
     pdf.text(`Manutenção, ${tituloMes(mesAtual).toLowerCase()}`, largura - 14, 24, { align: "right" });
@@ -469,7 +518,7 @@ $("btnPDF").addEventListener("click", async () => {
         pdf.text(`Página ${p} de ${paginas}`, largura - 14, 290, { align: "right" });
     }
 
-    pdf.save(`Escala_${mesAtual}.pdf`);
+    pdf.save(`Escala_${TIPOS[tipoAtual].curto}_${mesAtual}.pdf`);
 });
 
 // ======================================================
@@ -549,7 +598,7 @@ $("formFeriado").addEventListener("submit", async (e) => {
 
     try {
         await addDoc(collection(db, "feriados"), {
-            data, descricao, equipeFixaId: $("feriadoEquipe").value || null
+            data, descricao, equipeFixa: { [tipoAtual]: $("feriadoEquipe").value || null }
         });
         e.target.reset();
         aviso(`${descricao} (${dataCompleta(data)}) adicionado.`);
@@ -581,7 +630,7 @@ $("btnImportar").addEventListener("click", async () => {
 
     try {
         const lote = writeBatch(db);
-        novos.forEach((f) => lote.set(doc(collection(db, "feriados")), { ...f, equipeFixaId: null }));
+        novos.forEach((f) => lote.set(doc(collection(db, "feriados")), { ...f, equipeFixa: {} }));
         await lote.commit();
         aviso(novos.length === 1 ? `1 feriado de ${ano} importado.` : `${novos.length} feriados de ${ano} importados.`);
     } catch (erro) {
@@ -594,8 +643,10 @@ $("listaFeriados").addEventListener("change", async (e) => {
     const select = e.target.closest("[data-fixar]");
     if (!select) return;
     try {
-        await updateDoc(doc(db, "feriados", select.dataset.fixar), { equipeFixaId: select.value || null });
-        aviso(select.value ? `Feriado fixado com ${nomeEquipe(select.value)}.` : "Feriado voltou para o automático.");
+        await updateDoc(doc(db, "feriados", select.dataset.fixar), { [`equipeFixa.${tipoAtual}`]: select.value || null });
+        aviso(select.value
+            ? `Feriado fixado com ${nomeEquipe(select.value)} na ${TIPOS[tipoAtual].rotulo.toLowerCase()}.`
+            : "Feriado voltou para o automático.");
     } catch (erro) {
         console.error(erro);
         aviso("Não foi possível alterar a equipe do feriado.", "erro");
@@ -717,13 +768,13 @@ formRotacao.addEventListener("submit", async (e) => {
 
     const novo = lerFormRotacao();
     try {
-        await salvarConfig(novo);
+        await salvarConfig(tipoAtual, novo);
         config = { ...novo, existe: true };
         $("dataReferencia").value = config.dataReferencia;
         renderMes();
         renderFeriados();
         renderPrevia();
-        aviso("Rotação salva. Meses já salvos mantêm os ajustes feitos.");
+        aviso(`Rotação da ${TIPOS[tipoAtual].rotulo.toLowerCase()} salva. Meses já salvos mantêm os ajustes feitos.`);
     } catch (erro) {
         console.error(erro);
         aviso("Não foi possível salvar a rotação.", "erro");

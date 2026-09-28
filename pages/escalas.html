@@ -27,6 +27,7 @@
             <p class="page-sub">
                 Plantão das equipes de manutenção aos sábados, domingos e feriados.
                 A escala do mês é gerada pelo rodízio; ajuste o que precisar e salve.
+                Diurna e noturna têm rodízios separados.
             </p>
         </div>
         <div class="page-actions">
@@ -38,6 +39,15 @@
             </button>
         </div>
     </header>
+
+    <div class="seletor-escala" role="tablist" aria-label="Tipo de escala">
+        <button class="seletor-bt ativo" role="tab" aria-selected="true" data-tipo="diurna">
+            <i class="fa-solid fa-sun" aria-hidden="true"></i> Escala diurna
+        </button>
+        <button class="seletor-bt" role="tab" aria-selected="false" data-tipo="noturna">
+            <i class="fa-solid fa-moon" aria-hidden="true"></i> Escala noturna
+        </button>
+    </div>
 
     <nav class="abas" role="tablist" aria-label="Seções da escala">
         <button class="aba-bt ativo" role="tab" aria-selected="true" data-aba="mes">Escala do mês</button>
@@ -121,7 +131,8 @@
                     </label>
                 </div>
                 <p class="texto-apoio">
-                    Cada feriado fica com a próxima equipe da fila, independente do fim de semana.
+                    Os feriados valem para as duas escalas, mas cada escala tem a sua fila:
+                    cada feriado fica com a próxima equipe, independente do fim de semana.
                     Se você fixar uma equipe num feriado, a fila continua a partir dela.
                 </p>
                 <div id="listaFeriados" class="lista-feriados"></div>
@@ -191,7 +202,7 @@
                 <div class="ordem-rodizio">
                     <span class="rotulo">Ordem do rodízio</span>
                     <div id="ordemEquipes" class="ordem-lista"></div>
-                    <a href="/pages/funcionarios.html" class="link">Mudar a ordem arrastando as colunas em Equipes</a>
+                    <a href="/pages/funcionarios.html" class="link" id="linkOrdem">Mudar a ordem arrastando as colunas em Equipes</a>
                 </div>
 
                 <button type="submit" class="bt bt-principal">

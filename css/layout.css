@@ -403,3 +403,49 @@ h1,h2,h3{
 @media (prefers-reduced-motion:reduce){
     *{ animation:none !important; transition:none !important; }
 }
+
+/* =====================================================
+   SELETOR DE ESCALA (diurna / noturna)
+   Usado em Equipes e em Escala
+===================================================== */
+
+.seletor-escala{
+    display:inline-flex;
+    gap:4px;
+    padding:4px;
+    background:#E3E7EE;
+    border-radius:var(--raio-l);
+    margin-bottom:18px;
+}
+
+.seletor-bt{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 16px;
+    border-radius:var(--raio-m);
+    background:none;
+    color:var(--tinta-2);
+    font:600 15px var(--fonte);
+}
+
+.seletor-bt:hover{ color:var(--tinta); }
+
+.seletor-bt.ativo{
+    background:var(--superficie);
+    color:var(--tinta);
+    box-shadow:var(--sombra-card);
+}
+
+.seletor-bt[data-tipo="diurna"].ativo i{ color:#E39A12; }
+.seletor-bt[data-tipo="noturna"].ativo i{ color:var(--sm-azul); }
+
+.seletor-num{
+    font-size:12px;
+    font-weight:700;
+    background:rgba(27,35,48,.08);
+    border-radius:999px;
+    padding:1px 8px;
+}
+
+.modal-caixa--larga{ width:min(820px, 100%); }

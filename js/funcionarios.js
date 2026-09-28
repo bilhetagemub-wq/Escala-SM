@@ -6,8 +6,10 @@
 import { db } from "./firebase.js";
 import { montarLayout, aviso } from "./layout.js";
 import {
-    ouvirEquipes, ouvirFuncionarios, CORES_EQUIPE, esc, iniciais
+    ouvirEquipes, ouvirFuncionarios, CORES_EQUIPE, TIPOS, esc, iniciais,
+    tipoDoFuncionario, tipoDaEquipe, proximaCor
 } from "./dados.js";
+import { iniciarImportacao, exportarPlanilha } from "./importacao.js";
 
 import {
     collection, doc, addDoc, updateDoc, deleteDoc, writeBatch
@@ -25,7 +27,12 @@ let equipes = [];
 let funcionarios = [];
 let arrastando = false;
 let renderPendente = false;
-const filtro = { texto: "", turno: "", inativos: false };
+const filtro = { texto: "", inativos: false };
+let tipoAtual = new URLSearchParams(location.search).get("tipo") === "noturna" ? "noturna" : "diurna";
+
+// equipes e funcionários da escala que está aberta
+const equipesDoTipo = () => equipes.filter((e) => tipoDaEquipe(e) === tipoAtual);
+const funcionariosDoTipo = () => funcionarios.filter((f) => tipoDoFuncionario(f) === tipoAtual);
 
 const quadro = document.getElementById("quadro");
 
@@ -64,7 +71,6 @@ function corDaEquipe(equipeId) {
 
 function passaNoFiltro(f) {
     if (!filtro.inativos && f.status === "Inativo") return false;
-    if (filtro.turno && f.turno !== filtro.turno) return false;
     if (filtro.texto) {
         const alvo = `${f.nome} ${f.matricula} ${f.funcao}`.toLowerCase();
         if (!alvo.includes(filtro.texto)) return false;
@@ -73,7 +79,6 @@ function passaNoFiltro(f) {
 }
 
 function htmlCard(f) {
-    const turnoClasse = f.turno === "Noite" ? "etiqueta--noite" : "etiqueta--manha";
     return `
         <article class="card-func ${f.status === "Inativo" ? "inativo" : ""}"
                  data-id="${esc(f.id)}" tabindex="0"
@@ -82,7 +87,6 @@ function htmlCard(f) {
             <div class="card-nome">${esc(f.nome)}</div>
             <div class="card-funcao">${esc(f.funcao || "Sem função")}</div>
             <div class="card-meta">
-                <span class="etiqueta ${turnoClasse}">${esc(f.turno || "Manhã")}</span>
                 ${f.matricula ? `<span class="etiqueta">Mat. ${esc(f.matricula)}</span>` : ""}
                 ${f.status === "Inativo" ? `<span class="etiqueta etiqueta--inativo">Inativo</span>` : ""}
             </div>
@@ -90,8 +94,9 @@ function htmlCard(f) {
 }
 
 function htmlColuna({ id, nome, cor, posicao, livre }) {
-    const membros = funcionarios.filter((f) =>
-        livre ? !f.equipeId || !equipes.some((e) => e.id === f.equipeId) : f.equipeId === id
+    const doTipo = equipesDoTipo();
+    const membros = funcionariosDoTipo().filter((f) =>
+        livre ? !f.equipeId || !doTipo.some((e) => e.id === f.equipeId) : f.equipeId === id
     );
     const visiveis = membros.filter(passaNoFiltro);
     const ativos = membros.filter((f) => f.status !== "Inativo").length;
@@ -121,14 +126,38 @@ function render() {
 
     quadro.innerHTML = [
         htmlColuna({ id: SEM_EQUIPE, nome: "Sem equipe", livre: true }),
-        ...equipes.map((e, i) => htmlColuna({ ...e, posicao: i + 1 })),
+        ...equipesDoTipo().map((e, i) => htmlColuna({ ...e, posicao: i + 1 })),
         `<button class="coluna-nova" id="colunaNova"><i class="fa-solid fa-plus" aria-hidden="true"></i> Adicionar equipe</button>`
     ].join("");
 
     quadro.scrollLeft = scroll;
     ativarArraste();
     atualizarListaFuncoes();
+    atualizarSeletor();
 }
+
+// ------------------------------------------------------
+// Diurna / noturna
+// ------------------------------------------------------
+
+function atualizarSeletor() {
+    const ativos = (tipo) => funcionarios.filter((f) => tipoDoFuncionario(f) === tipo && f.status !== "Inativo").length;
+    document.getElementById("numDiurna").textContent = ativos("diurna");
+    document.getElementById("numNoturna").textContent = ativos("noturna");
+    document.querySelectorAll(".seletor-bt").forEach((b) => {
+        b.classList.toggle("ativo", b.dataset.tipo === tipoAtual);
+        b.setAttribute("aria-selected", b.dataset.tipo === tipoAtual);
+    });
+}
+
+document.querySelectorAll(".seletor-bt").forEach((bt) => {
+    bt.addEventListener("click", () => {
+        tipoAtual = bt.dataset.tipo;
+        history.replaceState(null, "", `?tipo=${tipoAtual}`);
+        quadro.scrollLeft = 0;
+        render();
+    });
+});
 
 // ------------------------------------------------------
 // Arrastar e soltar (SortableJS)
@@ -222,7 +251,10 @@ async function aoSoltarCard(evt) {
 }
 
 async function aoSoltarColuna() {
-    const ids = [...quadro.querySelectorAll(".coluna--equipe")].map((c) => c.dataset.equipe);
+    // a ordem vale dentro da escala aberta; as equipes da outra escala vêm depois
+    const idsTipo = [...quadro.querySelectorAll(".coluna--equipe")].map((c) => c.dataset.equipe);
+    const outros = equipes.filter((e) => tipoDaEquipe(e) !== tipoAtual).map((e) => e.id);
+    const ids = [...idsTipo, ...outros];
     const lote = writeBatch(db);
     let alteracoes = 0;
 
@@ -273,6 +305,26 @@ quadro.addEventListener("keydown", (e) => {
 });
 
 document.getElementById("btnNovo").addEventListener("click", () => abrirFuncionario(null));
+
+// importar / exportar planilha
+const importacao = iniciarImportacao({
+    obterDados: () => ({ equipes, funcionarios }),
+    aviso,
+    abrirModal: (el, foco) => abrirModal(el, foco),
+    fecharModal: (el) => fecharModal(el)
+});
+
+document.getElementById("btnImportar").addEventListener("click", () => importacao.abrir());
+
+document.getElementById("btnExportar").addEventListener("click", () => {
+    try {
+        const n = exportarPlanilha(equipes, funcionarios);
+        aviso(`Planilha com ${n} funcionários baixada.`);
+    } catch (erro) {
+        console.error(erro);
+        aviso(erro.message || "Não foi possível gerar a planilha.", "erro");
+    }
+});
 document.getElementById("btnNovaEquipe").addEventListener("click", () => abrirEquipe(null));
 
 // ------------------------------------------------------
@@ -282,15 +334,6 @@ document.getElementById("btnNovaEquipe").addEventListener("click", () => abrirEq
 document.getElementById("busca").addEventListener("input", (e) => {
     filtro.texto = e.target.value.trim().toLowerCase();
     render();
-});
-
-document.querySelectorAll(".filtro-turno .chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-        document.querySelectorAll(".filtro-turno .chip").forEach((c) => c.classList.remove("ativo"));
-        chip.classList.add("ativo");
-        filtro.turno = chip.dataset.turno;
-        render();
-    });
 });
 
 document.getElementById("mostrarInativos").addEventListener("change", (e) => {
@@ -334,11 +377,17 @@ function atualizarListaFuncoes() {
     campo("listaFuncoes").innerHTML = funcoes.map((f) => `<option value="${esc(f)}">`).join("");
 }
 
+// só mostra as equipes da escala escolhida no cadastro
 function preencherSelectEquipes(selecionada) {
+    const tipo = campo("funcTurno").value === "Noturno" ? "noturna" : "diurna";
+    const lista = equipes.filter((e) => tipoDaEquipe(e) === tipo);
+    const valida = lista.some((e) => e.id === selecionada) ? selecionada : "";
     campo("funcEquipe").innerHTML =
         `<option value="">Sem equipe</option>` +
-        equipes.map((e) => `<option value="${esc(e.id)}" ${e.id === selecionada ? "selected" : ""}>${esc(e.nome)}</option>`).join("");
+        lista.map((e) => `<option value="${esc(e.id)}" ${e.id === valida ? "selected" : ""}>${esc(e.nome)}</option>`).join("");
 }
+
+campo("funcTurno").addEventListener("change", () => preencherSelectEquipes(campo("funcEquipe").value));
 
 function abrirFuncionario(id, equipePadrao) {
     const f = id ? funcionarios.find((x) => x.id === id) : null;
@@ -349,7 +398,7 @@ function abrirFuncionario(id, equipePadrao) {
     campo("funcNome").value = f?.nome || "";
     campo("funcMatricula").value = f?.matricula || "";
     campo("funcFuncao").value = f?.funcao || "";
-    campo("funcTurno").value = f?.turno || "Manhã";
+    campo("funcTurno").value = TIPOS[f ? tipoDoFuncionario(f) : tipoAtual].turno;
     campo("funcStatus").value = f?.status || "Ativo";
     preencherSelectEquipes(equipe);
     campo("btnExcluirFunc").classList.toggle("hidden", !f);
@@ -380,6 +429,9 @@ formFunc.addEventListener("submit", async (e) => {
         equipeId
     };
 
+    // mudou de escala: o quadro passa a mostrar a escala dele
+    const tipoNovo = dados.turno === "Noturno" ? "noturna" : "diurna";
+
     // entrando numa equipe nova: vai para o fim da coluna
     if (!atual || (atual.equipeId || null) !== equipeId) {
         dados.ordem = funcionarios.filter((x) => (x.equipeId || null) === equipeId).length;
@@ -393,6 +445,9 @@ formFunc.addEventListener("submit", async (e) => {
         else await addDoc(collection(db, "funcionarios"), dados);
         fecharModal(modalFunc);
         aviso(id ? "Funcionário atualizado." : `${nome} foi adicionado.`);
+        if (tipoNovo !== tipoAtual) {
+            aviso(`${nome} está na ${TIPOS[tipoNovo].rotulo.toLowerCase()}.`);
+        }
     } catch (erro) {
         console.error(erro);
         aviso("Não foi possível salvar o funcionário.", "erro");
@@ -425,18 +480,23 @@ const formEquipe = document.getElementById("formEquipe");
 
 function proximoNomeEquipe() {
     const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const usados = new Set(equipes.map((e) => e.nome));
-    for (const l of letras) if (!usados.has(`Equipe ${l}`)) return `Equipe ${l}`;
-    return `Equipe ${equipes.length + 1}`;
+    const usados = new Set(equipesDoTipo().map((e) => e.nome));
+    const prefixo = tipoAtual === "noturna" ? "Equipe N" : "Equipe ";
+    if (tipoAtual === "noturna") {
+        for (let n = 1; n < 100; n++) if (!usados.has(`${prefixo}${n}`)) return `${prefixo}${n}`;
+    }
+    for (const l of letras) if (!usados.has(`${prefixo}${l}`)) return `${prefixo}${l}`;
+    return `Equipe ${equipesDoTipo().length + 1}`;
 }
 
 function abrirEquipe(id) {
     const e = id ? equipes.find((x) => x.id === id) : null;
-    const corAtual = e?.cor || CORES_EQUIPE[equipes.length % CORES_EQUIPE.length];
+    const corAtual = e?.cor || proximaCor(equipesDoTipo());
 
     campo("tituloEquipe").textContent = e ? "Editar equipe" : "Nova equipe";
     campo("equipeId").value = e?.id || "";
     campo("equipeNome").value = e?.nome || proximoNomeEquipe();
+    campo("equipeEscala").value = e ? tipoDaEquipe(e) : tipoAtual;
     campo("equipeCores").innerHTML = CORES_EQUIPE.map((c) => `
         <label title="${c}">
             <input type="radio" name="cor" value="${c}" ${c === corAtual ? "checked" : ""}>
@@ -458,13 +518,29 @@ formEquipe.addEventListener("submit", async (e) => {
 
     const id = campo("equipeId").value;
     const cor = formEquipe.querySelector('input[name="cor"]:checked')?.value || CORES_EQUIPE[0];
+    const escala = campo("equipeEscala").value;
+    const atual = equipes.find((x) => x.id === id);
 
     try {
         if (id) {
-            await updateDoc(doc(db, "equipes", id), { nome, cor });
+            const lote = writeBatch(db);
+            lote.update(doc(db, "equipes", id), { nome, cor, escala });
+
+            // equipe mudou de escala: os integrantes mudam junto
+            if (tipoDaEquipe(atual) !== escala) {
+                funcionarios.filter((f) => f.equipeId === id).forEach((f) =>
+                    lote.update(doc(db, "funcionarios", f.id), { turno: TIPOS[escala].turno })
+                );
+            }
+            await lote.commit();
         } else {
             const ordem = equipes.length ? Math.max(...equipes.map((x) => x.ordem ?? 0)) + 1 : 0;
-            await addDoc(collection(db, "equipes"), { nome, cor, ordem });
+            await addDoc(collection(db, "equipes"), { nome, cor, ordem, escala });
+        }
+        if (escala !== tipoAtual) {
+            tipoAtual = escala;
+            history.replaceState(null, "", `?tipo=${tipoAtual}`);
+            render();
         }
         fecharModal(modalEquipe);
         aviso(id ? "Equipe atualizada." : `${nome} foi criada. Arraste funcionários para ela.`);
@@ -480,7 +556,7 @@ campo("btnExcluirEquipe").addEventListener("click", async () => {
     const membros = funcionarios.filter((f) => f.equipeId === id);
 
     const msg = membros.length
-        ? `Excluir ${equipe.nome}? Os ${membros.length} funcionários voltam para "Sem equipe" e o rodízio passa a ter ${equipes.length - 1} equipes.`
+        ? `Excluir ${equipe.nome}? Os ${membros.length} funcionários voltam para "Sem equipe" e o rodízio da ${TIPOS[tipoDaEquipe(equipe)].rotulo.toLowerCase()} passa a ter ${equipesDoTipo().length - 1} equipes.`
         : `Excluir ${equipe.nome}?`;
     if (!confirm(msg)) return;
 

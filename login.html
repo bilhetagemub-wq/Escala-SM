@@ -1,164 +1,89 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entrar | Escala São Miguel</title>
 
-    <title>Escala São Miguel | Login</title>
-
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/login.css">
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/login.css">
 </head>
 
-<body>
+<body class="tela-login">
 
-    <div class="background"></div>
+<main class="login">
 
-    <main class="login-container">
+    <!-- Lado da marca: as três velas do logo -->
+    <section class="login-marca" aria-hidden="true">
+        <svg class="velas" viewBox="0 0 620 420" preserveAspectRatio="xMidYMid meet">
+            <path class="vela vela-1" d="M0 20 L150 26 L262 150 L152 400 L22 400 Q118 212 0 20 Z" fill="#EF3A42"/>
+            <path class="vela vela-2" d="M186 18 L352 22 L448 140 L338 400 L204 400 Q306 214 186 18 Z" fill="#0A9447"/>
+            <path class="vela vela-3" d="M372 12 L620 12 L482 400 L388 400 Q478 216 372 12 Z" fill="#3B3F96"/>
+        </svg>
 
-        <section class="login-card">
+        <div class="marca-texto">
+            <p class="marca-titulo">Plantão de manutenção</p>
+            <p class="marca-sub">Sábados, domingos e feriados das equipes diurna e noturna.</p>
+        </div>
+    </section>
 
-            <div class="logo-area">
+    <!-- Lado do formulário -->
+    <section class="login-form-lado">
+        <div class="login-caixa">
 
-                <div class="logo-circle">
-                    <i class="fa-solid fa-shield-halved"></i>
-                </div>
+            <img class="login-logo" src="img/logo-sao-miguel.png" alt="São Miguel">
 
-                <h1>Escala São Miguel</h1>
+            <h1>Escala de manutenção</h1>
+            <p class="login-intro">Entre com o e-mail e a senha cadastrados.</p>
 
-                <p>
-                    Sistema de Gerenciamento de Escalas
-                </p>
+            <form id="loginForm" novalidate>
 
-            </div>
+                <label class="campo" for="email">
+                    <span>E-mail</span>
+                    <input type="email" id="email" placeholder="nome@empresa.com.br" autocomplete="username" required>
+                </label>
 
-            <form id="loginForm">
-
-                <div class="input-group">
-
-                    <label for="email">
-                        E-mail
-                    </label>
-
-                    <div class="input-box">
-                        <i class="fa-solid fa-envelope"></i>
-
-                        <input
-                            type="email"
-                            id="email"
-                            placeholder="Digite seu e-mail"
-                            autocomplete="username"
-                            required>
-                    </div>
-
-                </div>
-
-                <div class="input-group">
-
-                    <label for="password">
-                        Senha
-                    </label>
-
-                    <div class="input-box">
-
-                        <i class="fa-solid fa-lock"></i>
-
-                        <input
-                            type="password"
-                            id="password"
-                            placeholder="Digite sua senha"
-                            autocomplete="current-password"
-                            required>
-
-                        <button
-                            type="button"
-                            id="togglePassword"
-                            class="toggle-password">
-
+                <label class="campo" for="password">
+                    <span>Senha</span>
+                    <span class="senha">
+                        <input type="password" id="password" placeholder="Sua senha" autocomplete="current-password" required>
+                        <button type="button" id="togglePassword" class="toggle-password" aria-label="Mostrar ou esconder a senha">
                             <i class="fa-solid fa-eye"></i>
-
                         </button>
+                    </span>
+                </label>
 
-                    </div>
-
-                </div>
-
-                <div class="login-options">
-
-                    <label class="remember">
-
+                <div class="login-opcoes">
+                    <label class="alternar">
                         <input type="checkbox" id="remember">
-
                         <span>Lembrar acesso</span>
-
                     </label>
-
-                    <a href="#" id="forgotPassword">
-
-                        Esqueci minha senha
-
-                    </a>
-
+                    <a href="#" id="forgotPassword">Esqueci minha senha</a>
                 </div>
 
-                <button
-                    class="btn-login"
-                    id="btnLogin"
-                    type="submit">
-
-                    <span id="loginText">
-
-                        Entrar
-
+                <button class="bt bt-principal btn-entrar" id="btnLogin" type="submit">
+                    <span id="loginText">Entrar</span>
+                    <span id="loading" class="loading hidden">
+                        <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Entrando…
                     </span>
-
-                    <span
-                        id="loading"
-                        class="loading hidden">
-
-                        <i class="fa-solid fa-spinner fa-spin"></i>
-
-                    </span>
-
                 </button>
 
-                <div
-                    id="loginMessage"
-                    class="message">
-
-                </div>
-
+                <div id="loginMessage" class="message" role="alert" aria-live="polite"></div>
             </form>
 
-            <footer>
+            <footer class="login-rodape">© 2026 São Miguel</footer>
+        </div>
+    </section>
 
-                <p>
+</main>
 
-                    © 2026 Escala São Miguel
-
-                </p>
-
-            </footer>
-
-        </section>
-
-    </main>
-
-    <!-- Login -->
-    <script type="module" src="./js/auth.js"></script>
+<script type="module" src="./js/auth.js"></script>
 
 </body>
-
 </html>

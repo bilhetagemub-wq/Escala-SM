@@ -19,7 +19,7 @@ export function montarLayout(paginaAtiva) {
 
     sidebar.innerHTML = `
         <a class="sidebar-marca" href="/dashboard.html" aria-label="Início">
-            <img src="/img/logo-sao-miguel.jpg" alt="São Miguel">
+            <img src="/img/logo-sao-miguel.png" alt="São Miguel">
         </a>
         <p class="sidebar-produto">Escala de manutenção</p>
         <nav class="sidebar-nav">

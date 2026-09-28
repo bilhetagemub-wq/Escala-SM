@@ -26,11 +26,17 @@
             <h1>Equipes de manutenção</h1>
             <p class="page-sub">
                 Arraste os funcionários entre as equipes. Arraste a coluna pela alça
-                para mudar a ordem do rodízio.
+                para mudar a ordem do rodízio. Diurna e noturna têm equipes e rodízios separados.
             </p>
         </div>
 
         <div class="page-actions">
+            <button id="btnImportar" class="bt bt-contorno">
+                <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Importar planilha
+            </button>
+            <button id="btnExportar" class="bt bt-contorno" title="Baixa os funcionários no formato do modelo, para editar e importar de novo">
+                <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Baixar planilha atual
+            </button>
             <button id="btnNovaEquipe" class="bt bt-contorno">
                 <i class="fa-solid fa-flag" aria-hidden="true"></i> Nova equipe
             </button>
@@ -40,17 +46,21 @@
         </div>
     </header>
 
+    <div class="seletor-escala" role="tablist" aria-label="Tipo de escala">
+        <button class="seletor-bt ativo" role="tab" aria-selected="true" data-tipo="diurna">
+            <i class="fa-solid fa-sun" aria-hidden="true"></i> Escala diurna <span class="seletor-num" id="numDiurna">0</span>
+        </button>
+        <button class="seletor-bt" role="tab" aria-selected="false" data-tipo="noturna">
+            <i class="fa-solid fa-moon" aria-hidden="true"></i> Escala noturna <span class="seletor-num" id="numNoturna">0</span>
+        </button>
+    </div>
+
     <div class="quadro-filtros">
         <label class="busca">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input type="search" id="busca" placeholder="Buscar por nome, matrícula ou função" aria-label="Buscar funcionário">
         </label>
 
-        <div class="filtro-turno" role="group" aria-label="Filtrar por turno">
-            <button class="chip ativo" data-turno="">Todos</button>
-            <button class="chip" data-turno="Manhã">Manhã</button>
-            <button class="chip" data-turno="Noite">Noite</button>
-        </div>
 
         <label class="alternar">
             <input type="checkbox" id="mostrarInativos">
@@ -94,10 +104,10 @@
 
             <div class="modal-linha">
                 <label class="campo">
-                    <span>Turno</span>
+                    <span>Escala</span>
                     <select id="funcTurno">
-                        <option value="Manhã">Manhã</option>
-                        <option value="Noite">Noite</option>
+                        <option value="Diurno">Diurna</option>
+                        <option value="Noturno">Noturna</option>
                     </select>
                 </label>
                 <label class="campo">
@@ -143,6 +153,14 @@
                 <input type="text" id="equipeNome" required autocomplete="off" placeholder="Ex.: Equipe A">
             </label>
 
+            <label class="campo">
+                <span>Escala</span>
+                <select id="equipeEscala">
+                    <option value="diurna">Diurna</option>
+                    <option value="noturna">Noturna</option>
+                </select>
+            </label>
+
             <fieldset class="campo cores">
                 <span>Cor na escala</span>
                 <div id="equipeCores" class="paleta"></div>
@@ -161,6 +179,68 @@
     </form>
 </div>
 
+<!-- MODAL IMPORTAÇÃO -->
+<div class="modal-fundo hidden" id="modalImportar" role="dialog" aria-modal="true" aria-labelledby="tituloImportar">
+    <div class="modal-caixa modal-caixa--larga">
+        <div class="modal-topo">
+            <h2 id="tituloImportar">Importar planilha</h2>
+            <button type="button" class="bt-icone" data-fechar aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-corpo">
+            <div id="etapaArquivo">
+                <label class="soltar" id="areaSoltar">
+                    <input type="file" id="arquivoPlanilha" accept=".xlsx,.xls,.csv">
+                    <i class="fa-solid fa-file-excel" aria-hidden="true"></i>
+                    <strong>Arraste a planilha aqui ou clique para escolher</strong>
+                    <span>Arquivos .xlsx, .xls ou .csv com as colunas Nome, Matrícula, Função, Escala, Equipe e Status.</span>
+                </label>
+
+                <div class="modelo-aviso">
+                    <i class="fa-solid fa-table" aria-hidden="true"></i>
+                    <p>
+                        Primeira vez? Use o modelo: ele já tem as colunas certas e listas de escolha.
+                        Para atualizar quem já está cadastrado, baixe a planilha atual, edite e envie de volta.
+                    </p>
+                    <div class="modelo-botoes">
+                        <a class="bt bt-contorno" href="/modelos/modelo-equipes-sao-miguel.xlsx" download>
+                            <i class="fa-solid fa-download" aria-hidden="true"></i> Baixar modelo
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div id="etapaPrevia" class="hidden">
+                <p class="previa-arquivo" id="nomeArquivo"></p>
+                <div class="previa-resumo" id="resumoImportacao"></div>
+                <div class="previa-tabela">
+                    <table>
+                        <thead>
+                            <tr><th>Linha</th><th>Nome</th><th>Matrícula</th><th>Escala</th><th>Equipe</th><th>Resultado</th></tr>
+                        </thead>
+                        <tbody id="linhasImportacao"></tbody>
+                    </table>
+                </div>
+                <label class="alternar">
+                    <input type="checkbox" id="inativarAusentes">
+                    <span>Marcar como inativo quem está no sistema e não aparece na planilha</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="modal-rodape">
+            <button type="button" class="bt bt-texto hidden" id="btnOutroArquivo">
+                <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Escolher outro arquivo
+            </button>
+            <div class="direita">
+                <button type="button" class="bt bt-contorno" data-fechar>Cancelar</button>
+                <button type="button" class="bt bt-principal hidden" id="btnConfirmarImportacao">Importar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script type="module" src="../js/funcionarios.js"></script>
 

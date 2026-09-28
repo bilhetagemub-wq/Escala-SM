@@ -3,7 +3,20 @@
    dashboard.css — tela inicial
 ===================================================== */
 
-/* bloco principal: plantão do fim de semana */
+/* bloco principal: plantão do fim de semana, uma faixa por escala */
+.plantao-titulo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:18px;
+    font-weight:700;
+    color:var(--tinta-2);
+    margin-bottom:10px;
+}
+
+.plantao-titulo .fa-sun{ color:#E39A12; }
+.plantao-titulo .fa-moon{ color:var(--sm-azul); }
+
 .plantao{
     display:grid;
     grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));
@@ -121,6 +134,19 @@
 
 .lista-simples .principal{ flex:1; min-width:0; }
 .lista-simples small{ display:block; color:var(--tinta-2); font-size:13px; }
+.lista-simples .grupo{
+    font-family:var(--fonte-titulo);
+    font-weight:700;
+    color:var(--tinta-2);
+    padding-top:14px;
+}
+
+.lista-simples .grupo:first-child{ padding-top:0; }
+
+.lado-duplo{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:13px; }
+.lado-duplo span{ display:flex; align-items:center; gap:6px; color:var(--tinta-2); font-weight:600; white-space:nowrap; }
+.lado-duplo i{ width:9px; height:14px; background:var(--cor); clip-path:var(--vela); }
+
 .lista-simples .lado{ color:var(--tinta-2); font-size:14px; font-weight:600; white-space:nowrap; }
 
 .link{ color:var(--sm-azul); font-size:14px; font-weight:500; }
