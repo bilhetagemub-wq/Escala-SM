@@ -1,107 +1,57 @@
 /* =====================================================
    Escala São Miguel
-   login.css — tela de entrada com as velas do logo
+   login.css — tela de entrada simples, centralizada
 ===================================================== */
 
 body.tela-login{
     font-family:var(--fonte);
     color:var(--tinta);
-    background:var(--superficie);
+    background:var(--papel);
     min-height:100vh;
 }
 
 .login{
     min-height:100vh;
-    display:grid;
-    grid-template-columns:minmax(0, 1.15fr) minmax(380px, 1fr);
-}
-
-/* ---------- lado da marca ---------- */
-
-.login-marca{
-    position:relative;
-    background:var(--papel);
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-    justify-content:flex-end;
-    padding:48px;
-}
-
-.velas{
-    position:absolute;
-    top:9%;
-    left:5%;
-    width:88%;
-    height:auto;
-    max-height:70%;
-}
-
-/* entrada das velas: um único movimento ao abrir a página */
-.vela{
-    transform-box:fill-box;
-    transform-origin:left center;
-    animation:velaEntra .7s cubic-bezier(.2,.7,.2,1) both;
-}
-
-.vela-2{ animation-delay:.12s; }
-.vela-3{ animation-delay:.24s; }
-
-@keyframes velaEntra{
-    from{ opacity:0; transform:translateX(-40px) skewX(-6deg); }
-    to{ opacity:1; transform:none; }
-}
-
-.marca-texto{ position:relative; max-width:34ch; }
-
-.marca-titulo{
-    font-family:var(--fonte-titulo);
-    font-size:clamp(30px, 3.4vw, 46px);
-    font-weight:700;
-    line-height:1.05;
-    color:var(--sm-verde);
-}
-
-.marca-sub{
-    margin-top:10px;
-    font-size:17px;
-    color:var(--tinta-2);
-}
-
-/* ---------- lado do formulário ---------- */
-
-.login-form-lado{
     display:flex;
     align-items:center;
     justify-content:center;
-    padding:40px 28px;
+    padding:32px 20px;
 }
 
-.login-caixa{ width:100%; max-width:380px; }
+.login-cartao{
+    width:100%;
+    max-width:420px;
+    background:var(--superficie);
+    border-radius:var(--raio-l);
+    box-shadow:0 1px 2px rgba(27,35,48,.06), 0 12px 32px rgba(27,35,48,.08);
+    padding:40px 36px 32px;
+    border-top:4px solid var(--sm-verde);
+}
+
+.login-caixa{ width:100%; }
 
 .login-logo{
     display:block;
-    width:220px;
+    width:200px;
     max-width:100%;
-    margin:0 0 28px;
+    margin:0 auto 26px;
 }
 
 .login-caixa h1{
-    font-size:30px;
+    font-size:26px;
     font-weight:700;
+    text-align:center;
 }
 
 .login-intro{
     color:var(--tinta-2);
+    text-align:center;
     margin:6px 0 26px;
 }
 
 #loginForm{ display:grid; gap:16px; }
 
-.senha{
-    position:relative;
-    display:block;
-}
+.senha{ position:relative; display:block; }
 
 .senha input{ padding-right:46px; }
 
@@ -144,7 +94,7 @@ body.tela-login{
 
 .btn-entrar{
     width:100%;
-    height:50px;
+    height:48px;
     font-size:16px;
     margin-top:4px;
 }
@@ -159,37 +109,14 @@ body.tela-login{
 }
 
 .login-rodape{
-    margin-top:36px;
+    margin-top:18px;
     font-size:13px;
     color:var(--tinta-3);
+    text-align:center;
 }
 
-/* ---------- celular: velas viram uma faixa no topo ---------- */
-
-@media (max-width:860px){
-
-    .login{
-        grid-template-columns:1fr;
-        grid-template-rows:auto 1fr;
-    }
-
-    .login-marca{
-        height:150px;
-        padding:0;
-    }
-
-    .velas{
-        top:-20%;
-        left:4%;
-        width:92%;
-        max-height:none;
-    }
-
-    .marca-texto{ display:none; }
-
-    .login-form-lado{ align-items:flex-start; padding:28px 22px 40px; }
-
-    .login-logo{ width:180px; margin-bottom:20px; }
-
-    .login-caixa h1{ font-size:26px; }
+@media (max-width:480px){
+    .login{ align-items:flex-start; padding:24px 14px; }
+    .login-cartao{ padding:32px 22px 26px; }
+    .login-logo{ width:170px; }
 }
