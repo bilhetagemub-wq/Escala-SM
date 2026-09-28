@@ -150,7 +150,7 @@ function renderTurmas(funcionarios, equipes, configs) {
                 </li>`).join("") +
             (lideres.length ? `
                 <li>
-                    <span class="principal">Encarregados<small>${{ ciclo: "Um a cada 2 fins de semana", turma: "Cada um com a sua noite", dia: "Um por dia, revezando" }[modoEncarregado(configs[tipo], tipo)]}</small></span>
+                    <span class="principal">Encarregados<small>${{ fds: "Um por fim de semana, alternando", ciclo: "Um a cada 2 fins de semana", turma: "Cada um com a sua noite", dia: "Um por dia, revezando" }[modoEncarregado(configs[tipo], tipo)]}</small></span>
                     <span class="lado">${lideres.length}</span>
                 </li>` : "") +
             (sem ? `

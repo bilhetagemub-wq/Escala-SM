@@ -418,7 +418,9 @@ function atualizarCargos() {
 function atualizarTextoLider() {
     const tipo = $("funcTurno").value === "Noturno" ? "noturna" : "diurna";
     const m = modoEncarregado(configs[tipo], tipo);
-    $("textoLider").textContent = m === "ciclo"
+    $("textoLider").textContent = m === "fds"
+        ? "Fica fora das turmas e reveza com os outros encarregados: um por fim de semana, alternando."
+        : m === "ciclo"
         ? "Fica fora das turmas e reveza com os outros encarregados: cada um cuida de 2 fins de semana seguidos (A e B)."
         : m === "turma"
             ? "Aparece em destaque e é o encarregado da noite escolhida acima (sábado ou domingo)."

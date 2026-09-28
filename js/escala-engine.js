@@ -243,7 +243,9 @@ export function integrantesDoDia(dia, funcionarios, ajustes = {}, excluir = new 
 // Encarregado do dia
 // ------------------------------------------------------
 //
-// modo "ciclo" (diurna): um encarregado a cada 2 fins de semana seguidos
+// modo "fds" (diurna): um encarregado por fim de semana (sábado e domingo),
+//   alternando a cada fim de semana: 1, 2, 1, 2...
+// modo "ciclo": um encarregado a cada 2 fins de semana seguidos
 //   (o fim de semana A e o B, sábado e domingo). No ciclo seguinte entra
 //   o próximo da lista.
 // modo "dia": um encarregado por dia, em sequência (sáb, dom, sáb, dom...).
@@ -273,7 +275,9 @@ export function atribuirEncarregados(dias, { encarregados, config = {}, modo = "
             const ancora = anterior ? somarDias(d.data, -(d.diaSemana + 1)) : d.data;
             const semanas = semanasDesdeReferencia(ancora, config);
             const domingo = (d.fimDeSemana && d.diaSemana === 0) || anterior ? 1 : 0;
-            const passo = modo === "dia" ? semanas * 2 + domingo : Math.floor(semanas / 2);
+            const passo = modo === "dia" ? semanas * 2 + domingo
+                : modo === "ciclo" ? Math.floor(semanas / 2)
+                : semanas; // "fds": um por fim de semana
             original = ids[mod(inicial + passo, n)];
         }
 

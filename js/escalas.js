@@ -924,7 +924,7 @@ function lerFormRotacao() {
         dataReferencia: sabadoDoFimDeSemana($("dataReferencia").value || config.dataReferencia),
         equipeInicialId: tipoAtual === "noturna" ? config.equipeInicialId : $("equipeInicial").value,
         feriadoEquipeInicialId: $("feriadoEquipeInicial").value,
-        versao: 2,
+        versao: 3,
         feriadoNoFimDeSemana: valor("feriadoFds", "feriado"),
         encarregadoModo: valor("modoEncarregado", modoEncarregado(config, tipoAtual)),
         encarregadoInicialId: $("encarregadoInicial").value || config.encarregadoInicialId || null

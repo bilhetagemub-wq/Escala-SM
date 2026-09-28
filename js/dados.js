@@ -130,18 +130,20 @@ export function ehEncarregado(f, equipes = []) {
     return normalizar(equipe?.nome).includes("encarregad");
 }
 
-// "ciclo": um encarregado a cada 2 fins de semana (A e B), padrão da diurna
+// "fds":   um encarregado por fim de semana, alternando (1, 2, 1...), padrão da diurna
+// "ciclo": um encarregado a cada 2 fins de semana seguidos
 // "turma": cada encarregado tem a sua noite (sábado ou domingo), padrão da noturna
 // "dia":   um encarregado por dia, revezando em sequência
-export const MODO_ENCARREGADO_PADRAO = { diurna: "ciclo", noturna: "turma" };
+export const MODO_ENCARREGADO_PADRAO = { diurna: "fds", noturna: "turma" };
 
 export function modoEncarregado(config, tipo) {
     const m = config?.encarregadoModo;
-    if (m === "ciclo" || m === "dia" || m === "turma") return m;
+    if (m === "fds" || m === "ciclo" || m === "dia" || m === "turma") return m;
     return MODO_ENCARREGADO_PADRAO[tipo];
 }
 
 export const TEXTO_MODO_ENCARREGADO = {
+    fds: "Um encarregado por fim de semana (sábado e domingo), alternando a cada fim de semana",
     ciclo: "Um encarregado a cada 2 fins de semana (cobre A e B, sábado e domingo)",
     turma: "Cada encarregado tem a sua noite: arraste para Sábado ou Domingo",
     dia: "Um encarregado por dia, revezando em sequência"
@@ -296,6 +298,10 @@ export function completarConfig(config, tipo = "diurna") {
     // noturna gravada antes desta versão ("um por dia, revezando"): passa a
     // "cada encarregado com a sua noite", que é o jeito da noite trabalhar
     if (tipo === "noturna" && base.encarregadoModo === "dia" && !base.versao) base.encarregadoModo = "turma";
+
+    // diurna gravada antes desta versão ("2 fins de semana seguidos"): passa a
+    // "um por fim de semana, alternando", que é como a diurna trabalha
+    if (tipo === "diurna" && base.encarregadoModo === "ciclo" && (base.versao || 0) < 3) base.encarregadoModo = "fds";
 
     base.equipeInicialId = valida(base.equipeInicialId);
     base.feriadoEquipeInicialId = valida(base.feriadoEquipeInicialId);
