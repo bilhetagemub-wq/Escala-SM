@@ -81,8 +81,8 @@
 
         <p class="dica">
             <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
-            Arraste um nome para outro dia para escalar a pessoa só naquele dia, sem mudar a turma dela.
-            Clique num nome para marcar férias ou afastamento.
+            Clique num nome para marcar férias ou afastamento; no × você retira a pessoa do dia.
+            Use "Incluir pessoa" ou arraste um nome para outro dia. Tudo vale só para aquele dia, sem mudar a turma.
         </p>
 
         <div id="gradeDias" class="grade"></div>
@@ -276,6 +276,35 @@
     </section>
 
 </main>
+
+<!-- MODAL INCLUIR PESSOA NUM DIA -->
+<div class="modal-fundo hidden" id="modalIncluir" role="dialog" aria-modal="true" aria-labelledby="tituloIncluir">
+    <div class="modal-caixa">
+        <div class="modal-topo">
+            <h2 id="tituloIncluir">Incluir pessoa</h2>
+            <button type="button" class="bt-icone" data-fechar aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="modal-corpo">
+            <p class="texto-apoio incluir-dica">
+                Marque quem vai trabalhar neste dia. Vale só para este dia: a turma da pessoa não muda
+                e ela continua nos dias dela.
+            </p>
+            <label class="campo">
+                <span>Buscar</span>
+                <input type="search" id="buscaIncluir" placeholder="Nome, matrícula ou equipe" autocomplete="off">
+            </label>
+            <div id="listaIncluir" class="incluir-lista"></div>
+        </div>
+
+        <div class="modal-rodape">
+            <div class="direita">
+                <button type="button" class="bt bt-contorno" data-fechar>Cancelar</button>
+                <button type="button" class="bt bt-principal" id="btnConfirmarIncluir" disabled>Incluir</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- MODAL IMPRESSÃO -->
 <div class="modal-fundo hidden" id="modalImprimir" role="dialog" aria-modal="true" aria-labelledby="tituloImprimir">

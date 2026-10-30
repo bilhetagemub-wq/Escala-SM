@@ -217,9 +217,14 @@ export function pessoasDoDia(dia, funcionarios, ajustes, tipo, equipes, agruparP
             ((turmaDe(f) === dia.equipeId && !saem.has(f.id)) || entram.has(f.id)))
         .map((f) => ({ ...comAusencia(f), remanejado: entram.has(f.id) && turmaDe(f) !== dia.equipeId }));
 
+    // da turma do dia, mas retirados dele (para poder devolver)
+    const retirados = ativos.filter((f) =>
+        !ehEncarregado(f, equipes) && turmaDe(f) === dia.equipeId && saem.has(f.id) && !entram.has(f.id));
+
     return {
         encarregado: lider ? comAusencia(lider) : null,
         integrantes,
+        retirados,
         grupos: agruparPessoas(integrantes, equipes, agruparPor)
     };
 }
@@ -246,6 +251,38 @@ export function moverPessoa(remanejados, id, de, para) {
         if (!r[iso].entram.length && !r[iso].saem.length) delete r[iso];
     }
     return r;
+}
+
+function limparRemanejados(r) {
+    for (const iso of Object.keys(r)) {
+        if (!r[iso].entram.length && !r[iso].saem.length) delete r[iso];
+    }
+    return r;
+}
+
+// Inclui uma pessoa num dia (de qualquer turma), sem tirar de nenhum outro
+export function incluirNoDia(remanejados, id, iso) {
+    const r = structuredClone(remanejados || {});
+    const d = (r[iso] ??= { entram: [], saem: [] });
+    if (d.saem.includes(id)) d.saem = d.saem.filter((x) => x !== id);
+    if (!d.entram.includes(id)) d.entram.push(id);
+    return limparRemanejados(r);
+}
+
+// Retira uma pessoa de um dia, sem marcar ausência
+export function retirarDoDia(remanejados, id, iso) {
+    const r = structuredClone(remanejados || {});
+    const d = (r[iso] ??= { entram: [], saem: [] });
+    if (d.entram.includes(id)) d.entram = d.entram.filter((x) => x !== id);
+    if (!d.saem.includes(id)) d.saem.push(id);
+    return limparRemanejados(r);
+}
+
+// Devolve ao dia alguém da turma que tinha sido retirado
+export function devolverAoDia(remanejados, id, iso) {
+    const r = structuredClone(remanejados || {});
+    if (r[iso]) r[iso].saem = r[iso].saem.filter((x) => x !== id);
+    return limparRemanejados(r);
 }
 
 export function proximaCor(equipes) {

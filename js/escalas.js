@@ -16,7 +16,8 @@ import {
     ROTULO_AUSENCIA, TIPOS, turmasDe, turmaPorId, turmaFixaDoFeriado, encarregadoForaDasTurmas,
     modoEncarregado, pessoasDoDia, ativosDaEscala, turmaDe, ehEncarregado, esc,
     encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig,
-    moverPessoa
+    moverPessoa, incluirNoDia, retirarDoDia, devolverAoDia, ativosDaEscala as ativosDe,
+    turmaPorId as turmaInfo, normalizar
 } from "./dados.js";
 import {
     gerarEscalaDoMes, distribuirFeriados, feriadosNacionais, atribuirEncarregados, somarDias,
@@ -234,12 +235,12 @@ function htmlPessoa(p, d, classe = "") {
         <li class="pessoa-item ${p.remanejado ? "pessoa-item--remanejada" : ""}" data-id="${esc(p.id)}">
             <button class="membro ${classe} ${p.ausencia ? "ausente" : ""}"
                     data-membro="${esc(p.id)}" data-dia="${d.data}"
-                    title="${p.remanejado ? "Escalado só neste dia (arrastado de outro dia). " : ""}${p.ausencia ? "Clique para mudar ou remover a ausência" : "Clique para marcar férias ou afastamento. Arraste para outro dia para trocar."}">
+                    title="${p.remanejado ? "Incluído só neste dia. " : ""}${p.ausencia ? "Clique para mudar ou remover a ausência" : "Clique para marcar férias ou afastamento. Arraste para outro dia para trocar."}">
                 ${p.remanejado ? `<i class="fa-solid fa-right-left" aria-hidden="true"></i>` : ""}
                 <span class="nome">${esc(p.nome)}</span>
                 ${p.ausencia ? `<small>${ROTULO_AUSENCIA[p.ausencia]}</small>` : ""}
             </button>
-            ${p.remanejado ? `<button class="desfazer" data-desfazer="${esc(p.id)}" data-dia="${d.data}" title="Voltar ao normal: a pessoa volta para o dia da turma dela" aria-label="Desfazer remanejamento de ${esc(p.nome)}"><i class="fa-solid fa-xmark"></i></button>` : ""}
+            <button class="retirar" data-retirar="${esc(p.id)}" data-dia="${d.data}" title="Retirar ${esc(p.nome)} deste dia" aria-label="Retirar ${esc(p.nome)} deste dia"><i class="fa-solid fa-xmark"></i></button>
         </li>`;
 }
 
@@ -250,8 +251,8 @@ function htmlRemanejados(d, integrantes) {
     const entram = integrantes.filter((p) => p.remanejado).length;
     const saem = rem.saem?.length || 0;
     const partes = [
-        entram ? `${entram} ${entram === 1 ? "veio" : "vieram"} de outro dia` : "",
-        saem ? `${saem} ${saem === 1 ? "saiu" : "saíram"} para outro dia` : ""
+        entram ? `${entram} ${entram === 1 ? "incluído" : "incluídos"} neste dia` : "",
+        saem ? `${saem} ${saem === 1 ? "retirado" : "retirados"}` : ""
     ].filter(Boolean);
     return partes.length ? `<p class="dia-remanejo"><i class="fa-solid fa-right-left" aria-hidden="true"></i> ${partes.join(", ")}</p>` : "";
 }
@@ -281,8 +282,21 @@ function htmlLider(d, lider) {
         </div>`;
 }
 
+// quem é da turma do dia mas foi retirado: dá para devolver com um clique
+function htmlRetirados(d, retirados) {
+    if (!retirados.length) return "";
+    return `
+        <div class="dia-retirados">
+            <span>Retirados deste dia:</span>
+            ${retirados.map((p) => `
+                <button class="devolver" data-devolver="${esc(p.id)}" data-dia="${d.data}" title="Devolver ${esc(p.nome)} a este dia">
+                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${esc(p.nome)}
+                </button>`).join("")}
+        </div>`;
+}
+
 function htmlDia(d) {
-    const { encarregado, integrantes, grupos } = pessoas(d);
+    const { encarregado, integrantes, grupos, retirados } = pessoas(d);
     const presentes = integrantes.filter((p) => !p.ausencia).length + (encarregado && !encarregado.ausencia ? 1 : 0);
     const turma = turmaPorId(d.equipeId);
 
@@ -328,6 +342,12 @@ function htmlDia(d) {
                 <ul class="membros lista-dia zona-soltar" data-dia="${d.data}" aria-hidden="true">
                     <li class="zona-texto">Solte aqui para escalar neste dia</li>
                 </ul>
+
+                ${htmlRetirados(d, retirados)}
+
+                <button class="incluir-pessoa" data-incluir="${d.data}">
+                    <i class="fa-solid fa-user-plus" aria-hidden="true"></i> Incluir pessoa${d.feriado ? " no feriado" : ""}
+                </button>
 
                 ${!integrantes.length
                     ? `<p class="sem-membros">Ninguém na ${esc(turma?.curto || "turma")}. Defina as turmas em Funcionários.</p>`
@@ -411,6 +431,86 @@ function renderMes() {
 }
 
 // ------------------------------------------------------
+// Incluir pessoa num dia (qualquer turma), sem tirar de outro dia
+// ------------------------------------------------------
+
+let diaIncluir = null;
+const escolhidosIncluir = new Set(); // mantém as marcações enquanto busca
+
+function abrirIncluir(iso) {
+    const dia = diasDoMesAtual().find((d) => d.data === iso);
+    if (!dia) return;
+    diaIncluir = iso;
+    $("tituloIncluir").textContent = `Incluir em ${cap(NOMES_DIA[dia.diaSemana])}, ${dataCurta(iso)}${dia.feriado ? ` (${dia.feriado.descricao})` : ""}`;
+    $("buscaIncluir").value = "";
+    escolhidosIncluir.clear();
+    renderCandidatos();
+    $("modalIncluir").classList.remove("hidden");
+    setTimeout(() => $("buscaIncluir").focus(), 30);
+}
+
+function renderCandidatos() {
+    const dia = diasDoMesAtual().find((d) => d.data === diaIncluir);
+    if (!dia) return;
+    const ja = new Set(pessoas(dia).integrantes.map((p) => p.id));
+    const termo = normalizar($("buscaIncluir").value);
+    const nomeEquipe = (id) => equipes.find((e) => e.id === id)?.nome || "Sem equipe";
+
+    const candidatos = ativosDe(funcionarios, tipoAtual)
+        .filter((f) => !ehEncarregado(f, equipes) && !ja.has(f.id))
+        .filter((f) => !termo || normalizar(`${f.nome} ${f.matricula} ${nomeEquipe(f.equipeId)}`).includes(termo))
+        .sort((a, b) => nomeEquipe(a.equipeId).localeCompare(nomeEquipe(b.equipeId)) || (a.nome || "").localeCompare(b.nome || ""));
+
+    let atual = null;
+    $("listaIncluir").innerHTML = candidatos.map((f) => {
+        const eq = nomeEquipe(f.equipeId);
+        const titulo = eq !== atual ? `<p class="incluir-grupo">${esc(eq)}</p>` : "";
+        atual = eq;
+        const t = turmaInfo(turmaDe(f));
+        return `${titulo}
+            <label class="incluir-item">
+                <input type="checkbox" value="${esc(f.id)}" ${escolhidosIncluir.has(f.id) ? "checked" : ""}>
+                <span class="incluir-nome">${esc(f.nome)}</span>
+                <span class="incluir-turma" style="--cor:${t?.cor || "#8b93a1"}">${t ? esc(t.curto) : "Sem turma"}</span>
+            </label>`;
+    }).join("") || `<p class="texto-apoio">${termo ? "Ninguém encontrado com essa busca." : "Todos da escala já estão neste dia."}</p>`;
+    atualizarBotaoIncluir();
+}
+
+function atualizarBotaoIncluir() {
+    const n = escolhidosIncluir.size;
+    $("btnConfirmarIncluir").disabled = n === 0;
+    $("btnConfirmarIncluir").textContent = n ? `Incluir ${n} ${n === 1 ? "pessoa" : "pessoas"}` : "Incluir";
+}
+
+$("buscaIncluir").addEventListener("input", renderCandidatos);
+$("listaIncluir").addEventListener("change", (e) => {
+    if (e.target.type !== "checkbox") return;
+    if (e.target.checked) escolhidosIncluir.add(e.target.value);
+    else escolhidosIncluir.delete(e.target.value);
+    atualizarBotaoIncluir();
+});
+
+$("modalIncluir").addEventListener("click", (e) => {
+    if (e.target === $("modalIncluir") || e.target.closest("[data-fechar]")) $("modalIncluir").classList.add("hidden");
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") $("modalIncluir").classList.add("hidden");
+});
+
+$("btnConfirmarIncluir").addEventListener("click", () => {
+    const ids = [...escolhidosIncluir];
+    if (!ids.length || !diaIncluir) return;
+    let rem = ajustes.remanejados;
+    ids.forEach((id) => { rem = incluirNoDia(rem, id, diaIncluir); });
+    ajustes = { ...ajustes, remanejados: rem };
+    marcarSujo();
+    $("modalIncluir").classList.add("hidden");
+    aviso(`${ids.length} ${ids.length === 1 ? "pessoa incluída" : "pessoas incluídas"} em ${dataCurta(diaIncluir)}. Salve a escala para guardar.`);
+    renderMes();
+});
+
+// ------------------------------------------------------
 // Arrastar pessoas de um dia para outro (só na escala do mês)
 // ------------------------------------------------------
 
@@ -427,7 +527,7 @@ function ativarArrasteEntreDias() {
             sort: false,
             animation: 150,
             draggable: ".pessoa-item",
-            filter: ".desfazer, .zona-texto",
+            filter: ".retirar, .zona-texto",
             preventOnFilter: false,
             ghostClass: "pessoa-fantasma",
             dragClass: "pessoa-arrastando",
@@ -468,18 +568,25 @@ $("gradeDias").addEventListener("change", (e) => {
 });
 
 $("gradeDias").addEventListener("click", (e) => {
-    const desfazer = e.target.closest("[data-desfazer]");
-    if (desfazer) {
-        const id = desfazer.dataset.desfazer;
-        const rem = structuredClone(ajustes.remanejados || {});
-        for (const iso of Object.keys(rem)) {
-            rem[iso].entram = (rem[iso].entram || []).filter((x) => x !== id);
-            rem[iso].saem = (rem[iso].saem || []).filter((x) => x !== id);
-            if (!rem[iso].entram.length && !rem[iso].saem.length) delete rem[iso];
-        }
-        ajustes = { ...ajustes, remanejados: rem };
+    const retirar = e.target.closest("[data-retirar]");
+    if (retirar) {
+        ajustes = { ...ajustes, remanejados: retirarDoDia(ajustes.remanejados, retirar.dataset.retirar, retirar.dataset.dia) };
         marcarSujo();
         renderMes();
+        return;
+    }
+
+    const devolver = e.target.closest("[data-devolver]");
+    if (devolver) {
+        ajustes = { ...ajustes, remanejados: devolverAoDia(ajustes.remanejados, devolver.dataset.devolver, devolver.dataset.dia) };
+        marcarSujo();
+        renderMes();
+        return;
+    }
+
+    const incluir = e.target.closest("[data-incluir]");
+    if (incluir) {
+        abrirIncluir(incluir.dataset.incluir);
         return;
     }
 

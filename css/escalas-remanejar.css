@@ -13,17 +13,20 @@
 .pessoa-item .membro{ cursor:grab; }
 .pessoa-item .membro:active{ cursor:grabbing; }
 
-/* quem foi trazido de outro dia */
+/* espaço para o × de retirar */
+.pessoa-item .membro{ padding-right:26px; }
+
+/* quem foi incluído/trazido de outro dia */
 .pessoa-item--remanejada .membro{
     background:#e9eaf6;
     border:1px dashed #3B3F96;
     color:#2c2f72;
-    padding-right:26px;
 }
 
 .pessoa-item--remanejada .membro i{ font-size:10px; color:#3B3F96; }
 
-.desfazer{
+/* × para retirar a pessoa do dia */
+.retirar{
     position:absolute;
     right:4px;
     top:50%;
@@ -31,17 +34,21 @@
     width:18px;
     height:18px;
     border-radius:50%;
-    background:#3B3F96;
-    color:#fff;
+    background:rgba(27,35,48,.12);
+    color:#5B6474;
     font-size:9px;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
     border:none;
+    padding:0;
 }
 
-.desfazer:hover{ background:#b4232a; }
+.retirar:hover,
+.retirar:focus-visible{ background:#b4232a; color:#fff; }
+
+.pessoa-item--remanejada .retirar{ background:#3B3F96; color:#fff; }
 
 .dia-remanejo{
     font-size:12px;
@@ -89,4 +96,97 @@ body.arrastando-pessoa .dia:hover{ outline-color:#0A9447; }
     box-shadow:0 10px 24px rgba(27,35,48,.22);
     transform:rotate(2deg);
     background:#fff;
+}
+
+/* =====================================================
+   RETIRADOS E INCLUIR PESSOA
+===================================================== */
+
+.dia-retirados{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:#5B6474;
+}
+
+.dia-retirados > span{ font-weight:700; }
+
+.devolver{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 9px;
+    border-radius:999px;
+    border:1px dashed #c6cdd8;
+    background:none;
+    color:#5B6474;
+    font:500 12px inherit;
+    font-family:inherit;
+    text-decoration:line-through;
+    cursor:pointer;
+}
+
+.devolver i{ font-size:10px; text-decoration:none; }
+.devolver:hover{ border-color:#0A9447; color:#077a3a; text-decoration:none; background:#f3fbf6; }
+
+.incluir-pessoa{
+    align-self:flex-start;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:6px 12px;
+    border-radius:8px;
+    border:1px dashed #0A9447;
+    background:none;
+    color:#077a3a;
+    font:600 13px inherit;
+    font-family:inherit;
+    cursor:pointer;
+}
+
+.incluir-pessoa:hover{ background:#f3fbf6; }
+
+.incluir-dica{ margin:0; }
+
+.incluir-lista{
+    max-height:340px;
+    overflow:auto;
+    display:grid;
+    gap:4px;
+    padding-right:4px;
+}
+
+.incluir-grupo{
+    font-size:12px;
+    font-weight:700;
+    color:#5B6474;
+    margin:8px 0 2px;
+}
+
+.incluir-grupo:first-child{ margin-top:0; }
+
+.incluir-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    border:1px solid #DDE2EA;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.incluir-item:has(input:checked){ border-color:#0A9447; background:#f3fbf6; }
+.incluir-item input{ width:16px; height:16px; accent-color:#0A9447; flex:0 0 auto; }
+.incluir-nome{ flex:1; min-width:0; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.incluir-turma{
+    font-size:11px;
+    font-weight:700;
+    color:#fff;
+    background:var(--cor);
+    border-radius:6px;
+    padding:2px 7px;
+    white-space:nowrap;
 }
