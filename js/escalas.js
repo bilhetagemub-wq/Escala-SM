@@ -807,6 +807,48 @@ function hexParaRGB(hex) {
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+// Visual de cada tipo de escala na impressão
+const VISUAL_TIPO = {
+    diurna: { fundo: [242, 165, 22], texto: [27, 35, 48], cabecalho: [199, 127, 0], titulo: "ESCALA DIURNA" },
+    noturna: { fundo: [31, 35, 87], texto: [255, 255, 255], cabecalho: [59, 63, 150], titulo: "ESCALA NOTURNA" }
+};
+
+// Faixa com ícone (sol ou lua), título grande e o detalhe do turno
+function desenharFaixaTipo(pdf, cell, tipo, detalhe, continuacao) {
+    const v = VISUAL_TIPO[tipo];
+    const cx = cell.x + 11;
+    const cy = cell.y + cell.height / 2;
+
+    if (tipo === "diurna") {
+        // sol: círculo com raios
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(255, 255, 255);
+        pdf.setLineWidth(0.9);
+        pdf.circle(cx, cy, 3.1, "F");
+        for (let i = 0; i < 8; i++) {
+            const a = (Math.PI / 4) * i;
+            pdf.line(cx + Math.cos(a) * 4.4, cy + Math.sin(a) * 4.4, cx + Math.cos(a) * 6.2, cy + Math.sin(a) * 6.2);
+        }
+    } else {
+        // lua crescente e estrelas
+        pdf.setFillColor(255, 255, 255);
+        pdf.circle(cx, cy, 4.6, "F");
+        pdf.setFillColor(...v.fundo);
+        pdf.circle(cx + 2.4, cy - 1.6, 4.1, "F");
+        pdf.setFillColor(255, 255, 255);
+        [[cx + 6.5, cy - 3.6, 0.55], [cx + 4.6, cy + 3.8, 0.4], [cx + 8, cy + 1.2, 0.35]].forEach(([x, y2, r]) => pdf.circle(x, y2, r, "F"));
+    }
+
+    pdf.setTextColor(...v.texto);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(17);
+    pdf.text(v.titulo, cell.x + 22, cy + 1.2);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(continuacao ? `${detalhe}  (continuação)` : detalhe, cell.x + cell.width - 5, cy + 1.2, { align: "right" });
+}
+
 // cor da equipe bem clara, para o fundo da célula do grupo
 const clarear = (rgb) => rgb.map((c) => Math.round(c + (255 - c) * 0.86));
 
@@ -848,16 +890,21 @@ $("formImprimir").addEventListener("submit", async (e) => {
             pdf.setFont("helvetica", "normal");
             pdf.setFontSize(11);
             pdf.text(rotuloBloco(bloco) + ` de ${bloco.datas[0].slice(0, 4)}`, largura - 14, 22.5, { align: "right" });
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(9);
+            pdf.setTextColor(91, 100, 116);
+            pdf.text(tipos.map((t) => TIPOS[t].rotulo.toUpperCase()).join("  +  "), largura - 14, 27.5, { align: "right" });
 
-            let y = 34;
+            let y = 32;
             for (const tipo of tipos) {
                 const linhasDia = await escalaDoTipo(tipo, bloco.datas);
                 const nomesTurma = [...new Set(linhasDia.map((l) => l.dia.equipeId))].map((t) => turmaPorId(t)?.curto).filter(Boolean);
 
-                pdf.setFont("helvetica", "bold");
-                pdf.setFontSize(12);
-                pdf.setTextColor(27, 35, 48);
-                pdf.text(tipo === "diurna" && nomesTurma.length ? `${TIPOS[tipo].rotulo}: ${nomesTurma.join(" e ")}` : TIPOS[tipo].rotulo, 14, y);
+                const visual = VISUAL_TIPO[tipo];
+                let faixasDesenhadas = 0; // a partir da segunda, é continuação em outra página
+                const detalhe = tipo === "diurna"
+                    ? `Turno do dia${nomesTurma.length ? `  |  ${nomesTurma.join(" e ")}` : ""}`
+                    : "Turno da noite  |  Sábado e Domingo";
 
                 const corpo = [];
                 linhasDia.forEach(({ dia, ajustes: aj }) => {
@@ -893,21 +940,34 @@ $("formImprimir").addEventListener("submit", async (e) => {
                 });
 
                 pdf.autoTable({
-                    startY: y + 3,
-                    head: [["Data", "Dia", "Encarregado", agruparPor === "cargo" ? "Cargo" : "Grupo", "Integrantes"]],
+                    startY: y,
+                    head: [
+                        // faixa do tipo de escala: repete no topo se a tabela continuar na outra página
+                        [{ content: "", colSpan: 5, styles: { fillColor: visual.fundo, minCellHeight: 15, cellPadding: 0 } }],
+                        ["Data", "Dia", "Encarregado", agruparPor === "cargo" ? "Cargo" : "Grupo", "Integrantes"]
+                    ],
                     body: corpo,
                     theme: "grid",
                     styles: { fontSize: 9, cellPadding: 2.4, valign: "middle", lineColor: [221, 226, 234], lineWidth: 0.2, textColor: [27, 35, 48] },
-                    headStyles: { fillColor: hexParaRGB(tipo === "diurna" ? "#0A9447" : "#3B3F96"), textColor: 255 },
+                    headStyles: { fillColor: visual.cabecalho, textColor: 255 },
+                    tableLineColor: visual.fundo,
+                    tableLineWidth: 0.8,
+                    pageBreak: "avoid",       // se não couber no resto da página, começa na próxima
+                    rowPageBreak: "avoid",
+                    showHead: "everyPage",
+                    didDrawCell: (data) => {
+                        if (data.section !== "head" || data.row.index !== 0 || data.column.index !== 0) return;
+                        desenharFaixaTipo(pdf, data.cell, tipo, detalhe, faixasDesenhadas++ > 0);
+                    },
                     columnStyles: {
                         0: { cellWidth: 15 },
                         1: { cellWidth: 30 },
                         2: { cellWidth: 36 },
                         3: { cellWidth: 32 }
                     },
-                    margin: { left: 14, right: 14 }
+                    margin: { left: 14, right: 14, top: 16, bottom: 18 }
                 });
-                y = pdf.lastAutoTable.finalY + 12;
+                y = pdf.lastAutoTable.finalY + 14;
             }
         }
 
