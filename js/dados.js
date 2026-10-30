@@ -9,7 +9,7 @@
 //                   turma: "A" | "B" | null, lider, status }
 //   feriados      { data: "AAAA-MM-DD", descricao, equipeFixa: { diurna: "A"|"B"|null, noturna } }
 //   config/escala-{tipo}      { modo, dataReferencia, equipeInicialId, feriadoEquipeInicialId, feriadoNoFimDeSemana }
-//   escalas/{AAAA-MM}-{tipo}  { trocas, ausencias, encarregados, dias (retrato salvo), atualizadoEm }
+//   escalas/{AAAA-MM}-{tipo}  { trocas, ausencias, encarregados, remanejados, dias (retrato salvo), atualizadoEm }
 
 import { db } from "./firebase.js";
 import { CONFIG_PADRAO, sabadoDoFimDeSemana, hojeISO } from "./escala-engine.js";
@@ -205,16 +205,47 @@ export function pessoasDoDia(dia, funcionarios, ajustes, tipo, equipes, agruparP
     const comAusencia = (f) => ({ ...f, ausencia: ausencias[f.id] || null });
     const ativos = ativosDaEscala(funcionarios, tipo);
 
+    // remanejados: quem foi arrastado para este dia (entram) ou tirado dele (saem),
+    // só neste dia, sem mudar a turma da pessoa
+    const rem = ajustes?.remanejados?.[dia.data] || {};
+    const saem = new Set(rem.saem || []);
+    const entram = new Set(rem.entram || []);
+
     const lider = dia.encarregadoId ? ativos.find((f) => f.id === dia.encarregadoId) : null;
     const integrantes = ativos
-        .filter((f) => !ehEncarregado(f, equipes) && turmaDe(f) === dia.equipeId)
-        .map(comAusencia);
+        .filter((f) => !ehEncarregado(f, equipes) &&
+            ((turmaDe(f) === dia.equipeId && !saem.has(f.id)) || entram.has(f.id)))
+        .map((f) => ({ ...comAusencia(f), remanejado: entram.has(f.id) && turmaDe(f) !== dia.equipeId }));
 
     return {
         encarregado: lider ? comAusencia(lider) : null,
         integrantes,
         grupos: agruparPessoas(integrantes, equipes, agruparPor)
     };
+}
+
+// Move uma pessoa de um dia para outro só na escala do mês.
+// Devolve o novo objeto "remanejados"; arrastar de volta desfaz.
+export function moverPessoa(remanejados, id, de, para) {
+    const r = structuredClone(remanejados || {});
+    const dia = (iso) => (r[iso] ??= { entram: [], saem: [] });
+    const tirar = (lista, x) => lista.filter((y) => y !== x);
+
+    if (de && de !== para) {
+        const d = dia(de);
+        if (d.entram.includes(id)) d.entram = tirar(d.entram, id); // estava remanejada para lá
+        else if (!d.saem.includes(id)) d.saem.push(id);            // era do dia: sai
+    }
+    if (para && de !== para) {
+        const d = dia(para);
+        if (d.saem.includes(id)) d.saem = tirar(d.saem, id);       // volta para o dia dela
+        else if (!d.entram.includes(id)) d.entram.push(id);        // entra no dia
+    }
+
+    for (const iso of Object.keys(r)) {
+        if (!r[iso].entram.length && !r[iso].saem.length) delete r[iso];
+    }
+    return r;
 }
 
 export function proximaCor(equipes) {
@@ -322,12 +353,13 @@ export async function salvarConfig(tipo, config) {
 export async function lerAjustesDoMes(mesISO, tipo = "diurna") {
     let snap = await getDoc(doc(db, "escalas", `${mesISO}-${tipo}`));
     if (!snap.exists() && tipo === "diurna") snap = await getDoc(doc(db, "escalas", mesISO));
-    if (!snap.exists()) return { trocas: {}, ausencias: {}, encarregados: {}, salvo: false };
+    if (!snap.exists()) return { trocas: {}, ausencias: {}, encarregados: {}, remanejados: {}, salvo: false };
     const d = snap.data();
     return {
         trocas: d.trocas || {},
         ausencias: d.ausencias || {},
         encarregados: d.encarregados || {},
+        remanejados: d.remanejados || {},
         salvo: true,
         atualizadoEm: d.atualizadoEm?.toDate?.() || null
     };
@@ -340,6 +372,7 @@ export async function salvarEscalaDoMes(mesISO, tipo, ajustes, retrato) {
         trocas: ajustes.trocas || {},
         ausencias: ajustes.ausencias || {},
         encarregados: ajustes.encarregados || {},
+        remanejados: ajustes.remanejados || {},
         dias: retrato,
         atualizadoEm: serverTimestamp()
     });

@@ -15,7 +15,8 @@ import {
     lerConfig, salvarConfig, lerAjustesDoMes, salvarEscalaDoMes,
     ROTULO_AUSENCIA, TIPOS, turmasDe, turmaPorId, turmaFixaDoFeriado, encarregadoForaDasTurmas,
     modoEncarregado, pessoasDoDia, ativosDaEscala, turmaDe, ehEncarregado, esc,
-    encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig
+    encarregadosDaEscala, TEXTO_MODO_ENCARREGADO, completarConfig,
+    moverPessoa
 } from "./dados.js";
 import {
     gerarEscalaDoMes, distribuirFeriados, feriadosNacionais, atribuirEncarregados, somarDias,
@@ -42,7 +43,7 @@ let funcionarios = [];
 let todosFeriados = [];
 let feriados = [];         // com a turma fixa da escala aberta
 let config = null;
-let ajustes = { trocas: {}, ausencias: {}, encarregados: {}, salvo: false };
+let ajustes = { trocas: {}, ausencias: {}, encarregados: {}, remanejados: {}, salvo: false };
 let sujo = false;
 const pronto = { equipes: false, funcionarios: false, feriados: false, config: false };
 
@@ -165,7 +166,7 @@ async function carregarMes(mes, inicial = false) {
         ajustes = await lerAjustesDoMes(mes, tipoAtual);
     } catch (erro) {
         console.error(erro);
-        ajustes = { trocas: {}, ausencias: {}, encarregados: {}, salvo: false };
+        ajustes = { trocas: {}, ausencias: {}, encarregados: {}, remanejados: {}, salvo: false };
         aviso("Não foi possível ler os ajustes salvos deste mês.", "erro");
     }
     renderMes();
@@ -230,15 +231,29 @@ function tituloBloco(bloco) {
 
 function htmlPessoa(p, d, classe = "") {
     return `
-        <li>
+        <li class="pessoa-item ${p.remanejado ? "pessoa-item--remanejada" : ""}" data-id="${esc(p.id)}">
             <button class="membro ${classe} ${p.ausencia ? "ausente" : ""}"
                     data-membro="${esc(p.id)}" data-dia="${d.data}"
-                    title="${p.ausencia ? "Clique para mudar ou remover a ausência" : "Clique para marcar férias ou afastamento"}">
-                ${classe === "membro--lider" ? `<i class="fa-solid fa-star" aria-hidden="true"></i>` : ""}
+                    title="${p.remanejado ? "Escalado só neste dia (arrastado de outro dia). " : ""}${p.ausencia ? "Clique para mudar ou remover a ausência" : "Clique para marcar férias ou afastamento. Arraste para outro dia para trocar."}">
+                ${p.remanejado ? `<i class="fa-solid fa-right-left" aria-hidden="true"></i>` : ""}
                 <span class="nome">${esc(p.nome)}</span>
                 ${p.ausencia ? `<small>${ROTULO_AUSENCIA[p.ausencia]}</small>` : ""}
             </button>
+            ${p.remanejado ? `<button class="desfazer" data-desfazer="${esc(p.id)}" data-dia="${d.data}" title="Voltar ao normal: a pessoa volta para o dia da turma dela" aria-label="Desfazer remanejamento de ${esc(p.nome)}"><i class="fa-solid fa-xmark"></i></button>` : ""}
         </li>`;
+}
+
+// resumo do que mudou no dia por arrastar pessoas
+function htmlRemanejados(d, integrantes) {
+    const rem = ajustes.remanejados?.[d.data];
+    if (!rem) return "";
+    const entram = integrantes.filter((p) => p.remanejado).length;
+    const saem = rem.saem?.length || 0;
+    const partes = [
+        entram ? `${entram} ${entram === 1 ? "veio" : "vieram"} de outro dia` : "",
+        saem ? `${saem} ${saem === 1 ? "saiu" : "saíram"} para outro dia` : ""
+    ].filter(Boolean);
+    return partes.length ? `<p class="dia-remanejo"><i class="fa-solid fa-right-left" aria-hidden="true"></i> ${partes.join(", ")}</p>` : "";
 }
 
 function htmlLider(d, lider) {
@@ -302,11 +317,17 @@ function htmlDia(d) {
 
                 ${htmlLider(d, encarregado)}
 
+                ${htmlRemanejados(d, integrantes)}
+
                 ${grupos.map((g) => `
                     <div class="dia-grupo" style="--cor-grupo:${esc(g.cor)}">
                         <span class="grupo-nome"><i aria-hidden="true"></i>${esc(g.nome)}</span>
-                        <ul class="membros">${g.pessoas.map((p) => htmlPessoa(p, d)).join("")}</ul>
+                        <ul class="membros lista-dia" data-dia="${d.data}">${g.pessoas.map((p) => htmlPessoa(p, d)).join("")}</ul>
                     </div>`).join("")}
+
+                <ul class="membros lista-dia zona-soltar" data-dia="${d.data}" aria-hidden="true">
+                    <li class="zona-texto">Solte aqui para escalar neste dia</li>
+                </ul>
 
                 ${!integrantes.length
                     ? `<p class="sem-membros">Ninguém na ${esc(turma?.curto || "turma")}. Defina as turmas em Funcionários.</p>`
@@ -385,6 +406,52 @@ function renderMes() {
             <h3 class="bloco-titulo">${tituloBloco(bloco)}</h3>
             <div class="bloco-dias">${bloco.map(htmlDia).join("")}</div>
         </section>`).join("");
+
+    ativarArrasteEntreDias();
+}
+
+// ------------------------------------------------------
+// Arrastar pessoas de um dia para outro (só na escala do mês)
+// ------------------------------------------------------
+
+let sortablesDias = [];
+
+function ativarArrasteEntreDias() {
+    sortablesDias.forEach((x) => x.destroy());
+    sortablesDias = [];
+    if (!window.Sortable) return;
+
+    $("gradeDias").querySelectorAll(".lista-dia").forEach((lista) => {
+        sortablesDias.push(new Sortable(lista, {
+            group: "dias",
+            sort: false,
+            animation: 150,
+            draggable: ".pessoa-item",
+            filter: ".desfazer, .zona-texto",
+            preventOnFilter: false,
+            ghostClass: "pessoa-fantasma",
+            dragClass: "pessoa-arrastando",
+            forceFallback: true,
+            fallbackOnBody: true,
+            delayOnTouchOnly: true,
+            delay: 150,
+            onStart: () => document.body.classList.add("arrastando-pessoa"),
+            onEnd: (evt) => {
+                document.body.classList.remove("arrastando-pessoa");
+                const de = evt.from.dataset.dia;
+                const para = evt.to.dataset.dia;
+                const id = evt.item.dataset.id;
+
+                if (de !== para && id) {
+                    ajustes = { ...ajustes, remanejados: moverPessoa(ajustes.remanejados, id, de, para) };
+                    marcarSujo();
+                    const nome = funcionarios.find((f) => f.id === id)?.nome || "Funcionário";
+                    aviso(`${nome} escalado em ${NOMES_DIA[diaDaSemana(para)]}, ${dataCurta(para)}, só neste dia.`);
+                }
+                renderMes();
+            }
+        }));
+    });
 }
 
 $("gradeDias").addEventListener("change", (e) => {
@@ -401,6 +468,21 @@ $("gradeDias").addEventListener("change", (e) => {
 });
 
 $("gradeDias").addEventListener("click", (e) => {
+    const desfazer = e.target.closest("[data-desfazer]");
+    if (desfazer) {
+        const id = desfazer.dataset.desfazer;
+        const rem = structuredClone(ajustes.remanejados || {});
+        for (const iso of Object.keys(rem)) {
+            rem[iso].entram = (rem[iso].entram || []).filter((x) => x !== id);
+            rem[iso].saem = (rem[iso].saem || []).filter((x) => x !== id);
+            if (!rem[iso].entram.length && !rem[iso].saem.length) delete rem[iso];
+        }
+        ajustes = { ...ajustes, remanejados: rem };
+        marcarSujo();
+        renderMes();
+        return;
+    }
+
     const voltarLider = e.target.closest("[data-voltar-lider]");
     if (voltarLider) {
         const trocas = { ...(ajustes.encarregados || {}) };

@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/layout.css">
     <link rel="stylesheet" href="../css/escalas.css">
+    <link rel="stylesheet" href="../css/escalas-remanejar.css">
 </head>
 
 <body class="app">
@@ -80,7 +81,8 @@
 
         <p class="dica">
             <i class="fa-regular fa-hand-pointer" aria-hidden="true"></i>
-            Troque a turma do dia pelos botões e o encarregado pelo seletor. Clique num nome para marcar férias ou afastamento.
+            Arraste um nome para outro dia para escalar a pessoa só naquele dia, sem mudar a turma dela.
+            Clique num nome para marcar férias ou afastamento.
         </p>
 
         <div id="gradeDias" class="grade"></div>
@@ -325,6 +327,7 @@
     </form>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script type="module" src="../js/escalas.js"></script>

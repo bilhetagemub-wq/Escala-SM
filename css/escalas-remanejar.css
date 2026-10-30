@@ -1,0 +1,92 @@
+/* =====================================================
+   Escala São Miguel
+   escalas-remanejar.css — arrastar pessoas entre os dias
+   (complementa o escalas.css, sem alterar o que já existe)
+===================================================== */
+
+.pessoa-item{
+    display:inline-flex;
+    align-items:center;
+    position:relative;
+}
+
+.pessoa-item .membro{ cursor:grab; }
+.pessoa-item .membro:active{ cursor:grabbing; }
+
+/* quem foi trazido de outro dia */
+.pessoa-item--remanejada .membro{
+    background:#e9eaf6;
+    border:1px dashed #3B3F96;
+    color:#2c2f72;
+    padding-right:26px;
+}
+
+.pessoa-item--remanejada .membro i{ font-size:10px; color:#3B3F96; }
+
+.desfazer{
+    position:absolute;
+    right:4px;
+    top:50%;
+    transform:translateY(-50%);
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:#3B3F96;
+    color:#fff;
+    font-size:9px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    border:none;
+}
+
+.desfazer:hover{ background:#b4232a; }
+
+.dia-remanejo{
+    font-size:12px;
+    font-weight:600;
+    color:#3B3F96;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+/* área para soltar: aparece só durante o arraste */
+.lista-dia{ list-style:none; margin:0; padding:0; }
+.zona-soltar{ display:none; }
+
+body.arrastando-pessoa .zona-soltar{
+    display:flex;
+    min-height:40px;
+    align-items:center;
+    justify-content:center;
+    border:2px dashed #0A9447;
+    border-radius:10px;
+    background:#f3fbf6;
+    padding:4px;
+}
+
+.zona-texto{
+    font-size:13px;
+    font-weight:600;
+    color:#077a3a;
+    pointer-events:none;
+}
+
+body.arrastando-pessoa .zona-soltar .pessoa-item .zona-texto{ display:none; }
+
+/* realce dos cartões enquanto arrasta */
+body.arrastando-pessoa .dia{ outline:2px dashed transparent; transition:outline-color .15s; }
+body.arrastando-pessoa .dia:hover{ outline-color:#0A9447; }
+
+.pessoa-fantasma .membro{
+    opacity:.4;
+    border:1px dashed #0A9447;
+}
+
+.pessoa-arrastando .membro{
+    box-shadow:0 10px 24px rgba(27,35,48,.22);
+    transform:rotate(2deg);
+    background:#fff;
+}
